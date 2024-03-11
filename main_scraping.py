@@ -10,6 +10,8 @@ from src.ml_models.bert.predict import predict
 from pdfminer.high_level import extract_text, extract_pages
 from src import constants
 import os
+from src.database.db import ScrapingDatabase
+import sqlite3
 
 def get_pdf_links_from_agency(agency_name):
     """
@@ -89,26 +91,32 @@ def get_pdf_total_pages(pdf_path):
 
 def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000000, edital_threshold = 0.90, min_num_pages = 4):
     """
-    Extracts "editais" (calls for proposals) from an agency's website.
+    Retrieves editais from a specific agency's website.
+
+    This function retrieves editais (public notices) from the website of a specified agency. It first obtains the links to the editais from the agency's website, then downloads each edital, analyzes its content, and saves to the database.
 
     Args:
-        agency_name (str): The name of the agency.
-        num_labels (int): The number of labels for the BERT model.
-        max_content_length (int): The maximum content length of a PDF file to consider.
-        edital_threshold (float): The threshold probability for classifying a document as an "edital".
-        min_num_pages (int): The minimum number of pages for a PDF document to be considered.
+        agency_name (str): The name of the agency from which to retrieve editais.
+        num_labels (int): The number of labels for the classification model (default is 2).
+        max_content_length (int): The maximum allowed content length of a PDF file in bytes (default is 3000000 bytes).
+        edital_threshold (float): The threshold for considering an edital relevant based on the prediction probability (default is 0.90).
+        min_num_pages (int): The minimum number of pages required for a PDF file to be considered an edital (default is 4).
 
     Returns:
-        list: A list of PDF objects representing the "editais" extracted from the agency's website.
+        list: A list of PDFModel objects representing the editais retrieved from the agency's website.
+
+    Notes:
+        This function interacts with the ScrapingDatabase class to save the links of the retrieved editais to the database. If any exception occurs during the process, it is caught and handled appropriately, and the database connection is closed.
 
     Example:
-        >>> agency_name = 'example_agency'
-        >>> editais = get_editais_from_agency(agency_name)
+        >>> editais = get_editais_from_agency("Example Agency")
         >>> for edital in editais:
-        >>>     print(edital.host)
+        >>>     print(edital.host, edital.name)
     """
     pdfs_links = get_pdf_links_from_agency(agency_name)
     model, tokenizer = load_model(constants.BERT_MODEL_NAME, num_labels)
+    scraping_db_path = os.path.join(constants.DATA_PATH, constants.SQLITE_DB_FILE)
+    db = ScrapingDatabase(scraping_db_path, constants.SCRAPING_TABLE_NAME)
     editals = []
 
     for pdf in tqdm(pdfs_links):
@@ -128,12 +136,16 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
                     )                    
                     if predicted_class == 1 and probabilities[0][predicted_class] > edital_threshold:
                         editals.append(pdf)
+                        db.insert_data(link_pdf=pdf.host, agency=pdf.name, created_at=pdf.created)
                 else:
                     raise Exception(f"PDF {pdf.host} contais few pages {doc_num_pages}!")
-        except Exception as e:
+        except sqlite3.Error as e:
+            print(f"Error on pdf {pdf.host} -> {e}")
+
+        except Exception:
             # print(f"Error: {e}")
             pass
-
+    db.close()
     return editals
 
 if __name__ == '__main__':

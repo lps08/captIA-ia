@@ -27,3 +27,6 @@ GOOGLE_EMBEDDINGS_MODEL_NAME = config.get('captia', 'google_embeddings_model_nam
 HUGGINGFACE_EMBEDDINGS_MODEL_NAME = config.get('captia', 'huggingface_embeddings_model_name')
 GEMMA_MODEL_NAME = config.get('captia', 'gemma_model_name')
 GOOGLE_GEMINI_MODEL_NAME = config.get('captia', 'google_gemini_model_name')
+SQLITE_DB_FILE = config.get('captia', 'sqlite_db_file')
+SCRAPING_TABLE_NAME = config.get('captia', 'scraping_table_name')
+EDITALS_TABLE_NAME = config.get('captia', 'editais_table_name')
