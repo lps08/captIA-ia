@@ -8,6 +8,9 @@ from src.scraping.models.pdf_model import PDFLinkModel
 from src.scraping.adapters.tsl_adapter import TLSAdapter
 import hashlib
 from bs4 import BeautifulSoup
+from io import BytesIO
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument
 
 class PDFScraping:
     def __init__(self, name, host, selector, depth, verify=True) -> None:
@@ -48,6 +51,7 @@ class PDFScraping:
                 return True
             
             response = self.session.get(url, headers={'Range': 'bytes=0-3'}, timeout=5, verify=self.verify)
+            response.raise_for_status()
             
             content_type = response.headers.get('Content-Type', '').lower()
             if 'application/pdf' in content_type:
@@ -114,6 +118,7 @@ class PDFScraping:
 
         try:
             with self.session.get(url, headers=self.get_headers(), verify=self.verify) as response:
+                response.raise_for_status()
                 links = []
                 if selector_css:
                     body_selected = response.html.find(selector_css, first=True)
@@ -165,10 +170,12 @@ class PDFScraping:
             selector_css=self.selector if self.selector != '' else None,
             depth=self.depth_search
         )
-
+        pdfs = []
         print(f'Getting pdfs links...')
-        pdfs = [PDFLinkModel(link, self.name, datetime.now()) for link in tqdm(set(links)) if self.is_pdf_link(link)]
-
+        for link in tqdm(set(links)):
+            if self.is_pdf_link(link):
+                creation_date = self.get_creation_date(link)
+                pdfs.append(PDFLinkModel(link, self.name, creation_date, datetime.now()))
         return pdfs
     
     def create_hash(self, parser = 'html.parser'):
@@ -196,9 +203,54 @@ class PDFScraping:
         """
         try:
             with self.session.get(self.host, headers=self.get_headers(), verify=self.verify) as response:
+                response.raise_for_status()
                 soup = BeautifulSoup(response.content, parser)
                 page_content = soup.get_text()
                 hash = hashlib.sha256(page_content.encode()).hexdigest()
                 return hash
+        except Exception:
+            return None
+
+    def get_creation_date(self, pdf_link):
+        """
+        Retrieves the creation date of a PDF document from the given URL.
+
+        Parameters:
+            pdf_link (str): The URL of the PDF document.
+
+        Returns:
+            datetime.datetime or None: The creation date of the PDF document if found,
+            otherwise None.
+
+        Notes:
+            This function fetches the PDF document from the provided URL and extracts
+            its creation date using the PyPDF2 library. It then converts the date
+            string to a datetime object and returns it.
+
+            If any error occurs during the process, it returns None.
+
+        Example:
+            pdf_url = 'https://example.com/document.pdf'
+            creation_date = self.get_creation_date(pdf_url)
+            if creation_date:
+                print(f"The creation date of the PDF document is: {creation_date}")
+            else:
+                print("Failed to retrieve the creation date of the PDF document.")
+        """
+        try:
+            with self.session.get(pdf_link, headers=self.get_headers(), verify=self.verify) as response:
+                response.raise_for_status()
+                pdf_bytes = BytesIO(response.content)
+                parser = PDFParser(pdf_bytes)
+                document = PDFDocument(parser)
+                info = document.info[0]
+
+                if info is not None:
+                    creation_date = info.get('CreationDate')
+                    if creation_date:
+                        date = creation_date.decode('utf8')[2:15]
+                        return datetime.strptime(date, "%Y%m%d%H%M%S")
+                return None
+
         except Exception:
             return None

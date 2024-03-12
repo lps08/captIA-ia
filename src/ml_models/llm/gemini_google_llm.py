@@ -1,10 +1,5 @@
 #%%
 from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
-from langchain_core.exceptions import OutputParserException
-from google.generativeai.types.generation_types import StopCandidateException
-from retry import retry
-from src.ml_models.llm.retrieval_qa_llm import qa_llm
-from src.ml_models.llm.preprocessing import create_retriever_from_pdf
 from langchain.output_parsers import PydanticOutputParser
 from src.ml_models.llm.base_models.edital_model import Edital
 from src import constants
@@ -89,65 +84,3 @@ def get_gemini_model(
         safety_settings=disable_safety_settings() if disable_safety else None
     )
     return llm
-
-@retry(
-    tries=8, 
-    delay=2, 
-    backoff=1, 
-    exceptions=(OutputParserException, StopCandidateException)
-)
-def extract_info_edital(
-        pdf_path, 
-        llm,
-        embeddings,
-        parser = PydanticOutputParser(pydantic_object=Edital),
-        search_algorithm='mmr',
-        k=50, 
-        fetch_k=100, 
-        create_spliter=True,
-        chunk_size = 1024,
-        chunk_overlap = 512,
-    ):
-    """
-    Extract information from a PDF document (Edital) using a generative language model and embeddings.
-
-    Args:
-        pdf_path (str): The path to the PDF document.
-        llm: The generative language model for question answering.
-        embeddings: The embeddings used for text retrieval.
-        parser: The output parser for parsing the extracted information. Defaults to PydanticOutputParser initialized with Edital schema.
-        search_algorithm (str, optional): The text retrieval algorithm. Defaults to 'mmr'.
-        k (int, optional): The number of top-ranked candidates returned by the retriever. Defaults to 50.
-        fetch_k (int, optional): The number of documents fetched by the retriever. Defaults to 100.
-        create_spliter (bool, optional): Whether to create a spliter during text retrieval. Defaults to True.
-        chunk_size (int, optional): The size of text chunks used during retrieval. Defaults to 1024.
-        chunk_overlap (int, optional): The overlap size between text chunks during retrieval. Defaults to 512.
-
-    Returns:
-        Any: Extracted information from the PDF document.
-
-    Raises:
-        OutputParserException: If an exception occurs during output parsing.
-        StopCandidateException: If there are no more candidates to process during retrieval.
-
-    Note:
-        This function extracts information from a PDF document (Edital) using a generative language model and embeddings.
-        It utilizes a retry decorator to retry the function in case of exceptions specified in the exceptions parameter.
-        The pdf_path parameter specifies the path to the PDF document to be processed.
-        The llm parameter represents the generative language model used for question answering.
-        The embeddings parameter represents the embeddings used for text retrieval.
-        The parser parameter specifies the output parser for parsing the extracted information.
-        The search_algorithm parameter specifies the text retrieval algorithm to be used.
-        Additional parameters control the behavior of the text retriever.
-
-    Example:
-        >>> pdf_path = 'path/to/pdf_document.pdf'
-        >>> llm = get_gemini_model()
-        >>> embeddings = get_embeddings_model()
-        >>> extracted_info = extract_info_edital(pdf_path, llm, embeddings)
-    """
-    query = 'Qual o título completo do documento? Qual o objetivo do edital? Quais todos os critérios de elegibilidade? Quando é a data deadline de submissão? Quanto é o recurso financiado total? Quais todas as áreas de conhecimento da chamada?',
-    retriever = create_retriever_from_pdf(pdf_path, embeddings, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
-    res = qa_llm(query, llm, retriever, parser)
-
-    return res

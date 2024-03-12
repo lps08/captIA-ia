@@ -50,7 +50,7 @@ def extract_infos(
     edital['objetivo'] = qa_llm('Qual o objetivo da chamada?', llm, first_p_retriever)
     edital['submissao'] = qa_llm('Qual é a data do período limite de inscrição?', llm, all_p_retriever)
     edital['elegibilidade'] = qa_llm('Liste os critérios de elegibilidade da chamada', llm, all_p_retriever)
-    edital['recurso'] = qa_llm('Qual o valor dos recursos financeiro da chamada?', llm, all_p_retriever)
+    edital['financiamento'] = qa_llm('Qual o valor dos recursos financeiro da chamada?', llm, all_p_retriever)
     edital['areas'] = qa_llm('Quais as todas áreas de conhecimento da chamada?', llm, all_p_retriever)
 
     return edital

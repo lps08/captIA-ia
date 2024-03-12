@@ -263,6 +263,7 @@ def extract_infos(pdf_path, model, w2v_threshold=0.28):
     content_extracted['objetivo'] = pdf_content_extracted[objetivo_key][0] if objetivo_key else 'Nao encontrado'
     content_extracted['elegibilidade'] = pdf_content_extracted[elegibilidade_key] if elegibilidade_key else 'Não encontrado'
     content_extracted['submissao'] = submition_date
-    content_extracted['recurso'] = max_found_value
+    content_extracted['financiamento'] = max_found_value
+    content_extracted['areas'] = ''
     
     return content_extracted

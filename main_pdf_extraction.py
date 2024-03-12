@@ -10,6 +10,9 @@ from src.constants import ModelCard
 from src import constants
 import langchain
 import os
+from src.database.db import EditalDatabse, ScrapingDatabase
+import requests
+import tempfile
 langchain.debug = True #for debuging 
 
 def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
@@ -64,7 +67,70 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         )
         return infos
 
+def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
+    """
+    Extracts information from PDF files stored in the database and saves them into another database.
+
+    Parameters:
+        model_to_use (ModelCard): The model to use for extracting PDF information.
+
+    Returns:
+        None
+
+    Notes:
+        This function retrieves PDF files from a database table, extracts information from them using
+        the specified model, and saves the extracted information into another database table.
+
+        It fetches PDF files from the 'link_pdf' column of the 'scraping_table_name' table and iterates
+        over each entry. For each PDF, it downloads the file, extracts information using the specified
+        model, and then inserts the extracted information into the 'editals_table_name' table.
+
+        If any error occurs during the process, it prints an error message and continues to the next PDF.
+
+    Example:
+        # Assuming constants.MODEL_TO_USE is the desired model to use
+        # and constants.DATA_PATH, constants.SQLITE_DB_FILE, constants.SCRAPING_TABLE_NAME,
+        # constants.EDITALS_TABLE_NAME are defined correctly.
+        extract_pdf_infos_db(constants.MODEL_TO_USE)
+    """
+    db_path = os.path.join(constants.DATA_PATH, constants.SQLITE_DB_FILE)
+    scraping_db = ScrapingDatabase(db_path, constants.SCRAPING_TABLE_NAME)
+    editals_db = EditalDatabse(db_path, constants.EDITALS_TABLE_NAME)
+    
+    editals_saved = scraping_db.get_all()
+    if len(editals_saved) > 0:
+        for edital in editals_saved:
+            try:
+                response = requests.get(edital['link_pdf'])
+                response.raise_for_status()
+
+                with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
+                    temp_pdf_file.write(response.content)
+                    temp_pdf_path = temp_pdf_file.name
+                    infos = get_pdf_infos(temp_pdf_path, model_to_use)
+
+                    editals_db.insert_data(
+                        link_pdf=edital['link_pdf'],
+                        agency=edital['agency'],
+                        titulo=infos['titulo'],
+                        objetivo=infos['objetivo'],
+                        elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'], #fix when it's not a list
+                        submissao=infos['submissao'],
+                        financiamento=infos['financiamento'],
+                        areas='; '.join(infos['areas']) if type(infos['areas']) == list else infos['areas'], #fix when it's not a list
+                    )
+
+            except Exception as e:
+                print(f"Error on pdf {edital['link_pdf']} -> {e}")
+                pass
+    else:
+        raise Exception(f"No pdfs found in {scraping_db.table_name} table!")
+
+    scraping_db.close()
+    editals_db.close()
+    
 if __name__ == '__main__':
-    PDF_PATH = os.path.join(constants.EDITALS_DATASET_PATH, "cnpq.pdf")
-    res = get_pdf_infos(PDF_PATH)
-    print(res)
+    # PDF_PATH = os.path.join(constants.EDITALS_DATASET_PATH, "cnpq.pdf")
+    # res = get_pdf_infos(PDF_PATH)
+    # print(res)
+    extract_pdf_infos_db()

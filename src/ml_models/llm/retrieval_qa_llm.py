@@ -113,7 +113,7 @@ def qa_llm(query, llm, retriever, parser=None, chain_type = "stuff"):
         It constructs a retrieval QA chain based on the provided language model, retriever, and optional parser.
         The chain is invoked with the provided query to retrieve the answer.
         If a parser is provided, the result is parsed using the parser object.
-        The final result is returned as a dictionary or a string, depending on whether a parser is used.
+        The final result is returned as a string.
 
     Example:
         >>> question = "What is the capital of Brazil?"
@@ -124,7 +124,4 @@ def qa_llm(query, llm, retriever, parser=None, chain_type = "stuff"):
     prompt = get_prompt(parser) if parser else None
     chain = RetrievalQA.from_chain_type(llm=llm, chain_type=chain_type, retriever=retriever, chain_type_kwargs={"prompt" : prompt})
     res = chain.invoke(query)
-    if parser:
-        res = parser.parse(res['result'])
-        return res
     return res['result']
