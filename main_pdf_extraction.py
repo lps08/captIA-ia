@@ -114,10 +114,10 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         agency=edital['agency'],
                         titulo=infos['titulo'],
                         objetivo=infos['objetivo'],
-                        elegibilidade='; '.join(infos['elegibilidade']), #fix when it's not a list
+                        elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'], #fix when it's not a list
                         submissao=infos['submissao'],
                         financiamento=infos['financiamento'],
-                        areas='; '.join(infos['areas']), #fix when it's not a list
+                        areas='; '.join(infos['areas']) if type(infos['areas']) == list else infos['areas'], #fix when it's not a list
                     )
 
             except Exception as e:
