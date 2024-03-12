@@ -99,7 +99,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     
     editals_saved = scraping_db.get_all()
     if len(editals_saved) > 0:
-        for edital in editals_saved[:5]:
+        for edital in editals_saved:
             try:
                 response = requests.get(edital['link_pdf'])
                 response.raise_for_status()
