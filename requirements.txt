@@ -25,3 +25,4 @@ camelot-py
 faiss-cpu
 sentence-transformers
 ghostscript
+dateparser

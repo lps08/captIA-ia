@@ -136,7 +136,7 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
                     )                    
                     if predicted_class == 1 and probabilities[0][predicted_class] > edital_threshold:
                         editals.append(pdf)
-                        db.insert_data(link_pdf=pdf.host, agency=pdf.name, created_at=pdf.created)
+                        db.insert_data(ds_link_pdf=pdf.host, ds_agency=pdf.name, dt_pdf_file_date=pdf.created)
                 else:
                     raise Exception(f"PDF {pdf.host} contais few pages {doc_num_pages}!")
         except sqlite3.Error as e:

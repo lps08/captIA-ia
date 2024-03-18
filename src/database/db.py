@@ -66,6 +66,44 @@ class DatabaseTable(ABC):
             if col not in db_columns_names:
                 raise Exception(f'Invalid column name: {col}')
     
+    def __validate_update_values_dict(self, dict):
+        """
+        Validates the structure of a dictionary used for updating values in a database table.
+
+        Parameters:
+            dict (dict): The dictionary to be validated.
+
+        Raises:
+            Exception: If the dictionary structure is invalid or if column names are invalid.
+
+        Notes:
+            This function validates the structure of a dictionary used for updating values in a database table.
+            The dictionary is expected to contain 'set' and 'where' keys, representing the columns to be updated
+            and the condition for updating, respectively.
+
+            It checks if both 'set' and 'where' keys are present in the dictionary. If any of them is missing,
+            it raises an exception indicating the required structure.
+
+            Additionally, it validates the column names within the 'set' and 'where' dictionaries using the
+            '__validate_columns_names' method. This method ensures that the column names are valid.
+
+        Example:
+            # Assuming 'values_dict' is the dictionary to be validated
+            values_dict = {'set': {'key': 'value'}, 'where': {'key': 'value'}}
+            self.__validate_update_values_dict(values_dict)
+        """
+        keys_to_check = ['set', 'where'] #change positions
+        dict_keys = list(dict.keys())
+
+        for key in keys_to_check:
+            if key not in dict_keys:
+                raise Exception("Invalid dict values. It should have 'where' and 'values' keys. Example: {'set':{'key':'value'}, 'where':{'key':'value'}}")
+            
+        set_columns = dict['set']
+        where_columns = dict['where']
+        self.__validate_columns_names(set_columns)
+        self.__validate_columns_names(where_columns)
+    
     def get_columns_names(self):
         """
         Retrieves the names of columns in the database table.
@@ -141,7 +179,7 @@ class DatabaseTable(ABC):
         self.__validate_columns_names(columns_names)
         values = list(options.values())
         current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        columns_names.append('date')
+        columns_names.append('dt_created_at')
         values.append(current_date)
 
         columns_query = f"({','.join([col for col in columns_names])})"
@@ -219,6 +257,46 @@ class DatabaseTable(ABC):
         self.cursor.execute(query, values)
         self.conn.commit()
 
+    def update(self, dict_conditions:dict):
+        """
+        Updates rows in the database table based on the provided conditions.
+
+        Parameters:
+            dict_conditions (dict): A dictionary specifying the update conditions.
+
+        Returns:
+            None
+
+        Notes:
+            This function updates rows in the database table based on the provided conditions.
+            It takes a dictionary containing 'set' and 'where' keys, where 'set' represents the
+            columns to be updated and 'where' represents the conditions for the update.
+
+            It first validates the structure of the input dictionary using the '__validate_update_values_dict'
+            method. Then, it extracts the 'set' and 'where' dictionaries from the input and combines their
+            values into a single list.
+
+            It constructs the SQL query dynamically using the column names and placeholders for values to be
+            updated and conditions. Then, it executes the query using the cursor and commits the transaction.
+
+        Example:
+            update_conditions = {'set': {'column1': 'value1', 'column2': 'value2'}, 'where': {'id': 1}}
+            self.update(update_conditions)
+        """
+        self.__validate_update_values_dict(dict_conditions)
+        set = dict_conditions['set']
+        where = dict_conditions['where']
+
+        values = list(set.values()) + list(where.values())
+
+        set_query = ', '.join([f"{key} = ?" for key in set.keys()])
+        where_query = ', '.join([f"{key} = ?" for key in where.keys()])
+
+        query = f"UPDATE {self.table_name} SET {set_query} WHERE {where_query}"
+
+        self.cursor.execute(query, values)
+        self.conn.commit()
+
     def get_all(self):
         """
         Retrieves all rows from the database table.
@@ -268,10 +346,10 @@ class ScrapingDatabase(DatabaseTable):
     def create_table(self):
         self.cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {self.table_name} (
-            link_pdf TEXT PRIMARY KEY NOT NULL,
-            agency TEXT NOT NULL,
-            created_at TEXT,
-            date TEXT
+            ds_link_pdf TEXT PRIMARY KEY NOT NULL,
+            ds_agency TEXT NOT NULL,
+            dt_pdf_file_date TEXT,
+            dt_created_at TEXT
         )''')
 
         self.conn.commit()
@@ -283,34 +361,35 @@ class EditalDatabse(DatabaseTable):
     def create_table(self):
         self.cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {self.table_name} (
-            link_pdf TEXT PRIMARY KEY,
-            agency TEXT,
-            titulo TEXT,
-            objetivo TEXT,
-            elegibilidade TEXT,
-            submissao TEXT,
-            financiamento TEXT,
-            areas TEXT,
-            date TEXT
+            ds_link_pdf TEXT PRIMARY KEY,
+            ds_agency TEXT,
+            ds_titulo TEXT,
+            ds_objetivo TEXT,
+            ds_elegibilidade TEXT,
+            dt_submissao TEXT,
+            ds_financiamento TEXT,
+            ds_areas TEXT,
+            dt_created_at TEXT
         )''')
 
         self.conn.commit()
     
 if __name__ == '__main__':
+    # testing
     scraping_db = ScrapingDatabase('web_data.db', 'web_data')
-    editais_db = ScrapingDatabase('web_data.db', 'editais')
-    # scraping_db.insert_data(agency='centelha', link_pdf='example.com', agency_link='finep.com', hash='hash123')
-    print(editais_db.get_columns_names())
+    editais_db = EditalDatabse('web_data.db', 'editais')
+    scraping_db.insert_data(ds_link_pdf = 'finep.pdf', ds_agency='finep', dt_pdf_file_date='hoje')
     editais_db.insert_data(
-        agency = "centelha",
-        link_pdf = "pdf.com",
-        titulo = "titulo do pdf",
-        objetivo = "objetivo",
-        elegibilidade = "Os critérios são...",
-        submissao = "10/10/10",
-        financiamento = "100,00",
-        areas = "computacao",
+        ds_agency = "centelha",
+        ds_link_pdf = "pdf.com",
+        ds_titulo = "titulo do pdf",
+        ds_objetivo = "objetivo",
+        ds_elegibilidade = "Os critérios são...",
+        dt_submissao = "10/10/10",
+        ds_financiamento = "100,00",
+        ds_areas = "computacao",
     )
+
     print(scraping_db.get_all())
     print(editais_db.get_all())
     scraping_db.close()

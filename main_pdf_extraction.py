@@ -13,6 +13,8 @@ import os
 from src.database.db import EditalDatabse, ScrapingDatabase
 import requests
 import tempfile
+import dateparser
+
 langchain.debug = True #for debuging 
 
 def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
@@ -101,7 +103,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     if len(editals_saved) > 0:
         for edital in editals_saved:
             try:
-                response = requests.get(edital['link_pdf'])
+                response = requests.get(edital['ds_link_pdf'])
                 response.raise_for_status()
 
                 with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
@@ -110,18 +112,18 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                     infos = get_pdf_infos(temp_pdf_path, model_to_use)
 
                     editals_db.insert_data(
-                        link_pdf=edital['link_pdf'],
-                        agency=edital['agency'],
-                        titulo=infos['titulo'],
-                        objetivo=infos['objetivo'],
-                        elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'], #fix when it's not a list
-                        submissao=infos['submissao'],
-                        financiamento=infos['financiamento'],
-                        areas='; '.join(infos['areas']) if type(infos['areas']) == list else infos['areas'], #fix when it's not a list
+                        ds_link_pdf=edital['ds_link_pdf'],
+                        ds_agency=edital['ds_agency'],
+                        ds_titulo=infos['titulo'],
+                        ds_objetivo=infos['objetivo'],
+                        ds_elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'], #fix when it's not a list
+                        dt_submissao=dateparser.parse(infos['submissao']),
+                        ds_financiamento=infos['financiamento'],
+                        ds_areas='; '.join(infos['areas']) if type(infos['areas']) == list else infos['areas'], #fix when it's not a list
                     )
 
             except Exception as e:
-                print(f"Error on pdf {edital['link_pdf']} -> {e}")
+                print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
                 pass
     else:
         raise Exception(f"No pdfs found in {scraping_db.table_name} table!")
