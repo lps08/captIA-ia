@@ -369,6 +369,7 @@ class EditalDatabse(DatabaseTable):
             dt_submissao TEXT,
             ds_financiamento TEXT,
             ds_areas TEXT,
+            ds_nivel_trl,
             dt_created_at TEXT
         )''')
 

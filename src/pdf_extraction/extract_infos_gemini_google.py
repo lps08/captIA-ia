@@ -4,11 +4,15 @@ from google.generativeai.types.generation_types import StopCandidateException
 from langchain_core.exceptions import OutputParserException
 from retry import retry
 
+class NoDateException(Exception):
+    def __init__(self) -> None:
+        super().__init__('No date found!')
+
 @retry(
     tries=10, 
     delay=2, 
     backoff=1, 
-    exceptions=(OutputParserException, StopCandidateException)
+    exceptions=(OutputParserException, StopCandidateException, NoDateException)
 )
 def extract_infos(
         pdf_path, 
@@ -20,7 +24,7 @@ def extract_infos(
         fetch_k=100, 
         create_spliter=True,
         chunk_size = 1024,
-        chunk_overlap = 512,
+        chunk_overlap = 128,
     ):
     """
     Extract information from a PDF document (Edital) using a generative language model and embeddings.
@@ -60,8 +64,10 @@ def extract_infos(
         >>> embeddings = get_embeddings_model()
         >>> extracted_info = extract_info_edital(pdf_path, llm, embeddings)
     """
-    query = 'Qual o título completo do documento? Qual o objetivo do edital? Quais todos os critérios de elegibilidade? Quando é a data deadline de submissão? Quanto é o recurso financiado total? Quais todas as áreas de conhecimento da chamada?',
+    query = "'Qual o título completo do documento? Qual o objetivo do edital? Quais todos os critérios de elegibilidade? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total (retorne Não encontrado se não conter o valor)? Quais as áreas da chamada? Qual o nível de maturidade tecnológica (TRL) necessário?'"
     retriever = create_retriever_from_pdf(pdf_path, embeddings, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
     res = qa_llm(query, llm, retriever, parser)
     res = parser.parse(res)
+    if res.submissao == 'Não encontrado':
+        raise NoDateException
     return res.dict()
