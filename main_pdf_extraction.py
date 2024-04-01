@@ -120,7 +120,7 @@ def parse_money_value(text):
         >>> print(money_value)
         '$25.99'
     """
-    money_regex = re.compile(r"([£\$€]|(R\$))\s*(\d+(?:[\.\,]\d+)*)|(milhões)|(\d+(?:[\.\,]\d+)*)\s*([£\$€]|(mil)?\s*(euros|R\$|reais|milhão|milhões|mil))")
+    money_regex = re.compile(r"([£\$€]|(R\$))\s*(\d+(?:[\.\,]\d+)*)\s*(milhões|milhão|mil)?|(\d+(?:[\.\,]\d+)*)\s*([£\$€]|(mil)?\s*(euros|R\$|reais|milhão|milhões|mil))")
     res = money_regex.search(text)
     return res.group() if res else text
 
