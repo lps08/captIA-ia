@@ -51,7 +51,9 @@ def get_parser():
 
 def get_gemini_model(
         name=constants.GOOGLE_GEMINI_MODEL_NAME, 
-        temperature=0.2, 
+        temperature=0.3,
+        top_p=0.6, 
+        top_k=1,
         convert_system_message_to_human=True, 
         disable_safety=True
     ):
@@ -80,6 +82,8 @@ def get_gemini_model(
     llm = ChatGoogleGenerativeAI(
         model=name, 
         temperature=temperature, 
+        top_p=top_p, 
+        top_k=top_k,
         convert_system_message_to_human=convert_system_message_to_human, 
         safety_settings=disable_safety_settings() if disable_safety else None
     )
