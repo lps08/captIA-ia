@@ -13,6 +13,9 @@ import os
 from src.database.db import EditalDatabse, ScrapingDatabase
 import requests
 import tempfile
+from dateparser.search import search_dates
+import re
+
 langchain.debug = True #for debuging 
 
 def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
@@ -67,6 +70,60 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         )
         return infos
 
+def parse_areas(areas_list, max_size=3):
+    """
+    Parses and retrieves a subset of areas of knowledge from a list of areas.
+
+    This function sorts the list of areas of knowledge based on their lengths, removes empty strings, and retrieves a 
+    subset of the areas with the shortest lengths, up to a maximum size specified by the `max_size` parameter.
+
+    Args:
+        areas_list (list of str): The list of areas of knowledge.
+        max_size (int, optional): The maximum number of areas to retrieve. Defaults to 3.
+
+    Returns:
+        list of str: A subset of areas of knowledge, sorted by length, with empty strings removed, and limited to `max_size`.
+
+    Example:
+        To parse and retrieve a subset of areas of knowledge from a list of areas, you can use this function as follows:
+
+        >>> areas_list = ['Engineering', 'Computer Science', 'Mathematics', 'Physics']
+        >>> parsed_areas = parse_areas(areas_list)
+        >>> print(parsed_areas)
+        ['Engineering', 'Physics', 'Mathematics']
+
+    """
+    areas_list = [i.strip() for i in areas_list if i != '']
+    areas_list.sort(key=len)
+    return areas_list[:max_size]
+
+def parse_money_value(text):
+    """
+    Parses and extracts a monetary value from a given text.
+
+    This function uses a regular expression to search for and extract monetary 
+    values from the input text. It supports various currency symbols, including 
+    pound (£), dollar ($), euro (€), and Brazilian real (R$), as well as different 
+    formats for expressing numbers, such as using commas or periods as decimal separators.
+
+    Args:
+        text (str): The text from which to extract the monetary value.
+
+    Returns:
+        str: The extracted monetary value from the text.
+
+    Example:
+        To parse and extract a monetary value from a text, you can use this function as follows:
+
+        >>> text = "The price of the product is $25.99."
+        >>> money_value = parse_money_value(text)
+        >>> print(money_value)
+        '$25.99'
+    """
+    money_regex = re.compile(r"([£\$€]|(R\$))\s*(\d+(?:[\.\,]\d+)*)\s*(milhões|milhão|mil)?|(\d+(?:[\.\,]\d+)*)\s*([£\$€]|(mil)?\s*(euros|R\$|reais|milhão|milhões|mil))")
+    res = money_regex.search(text)
+    return res.group() if res else text
+
 def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
     Extracts information from PDF files stored in the database and saves them into another database.
@@ -101,7 +158,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     if len(editals_saved) > 0:
         for edital in editals_saved:
             try:
-                response = requests.get(edital['link_pdf'])
+                response = requests.get(edital['ds_link_pdf'])
                 response.raise_for_status()
 
                 with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
@@ -110,18 +167,19 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                     infos = get_pdf_infos(temp_pdf_path, model_to_use)
 
                     editals_db.insert_data(
-                        link_pdf=edital['link_pdf'],
-                        agency=edital['agency'],
-                        titulo=infos['titulo'],
-                        objetivo=infos['objetivo'],
-                        elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'], #fix when it's not a list
-                        submissao=infos['submissao'],
-                        financiamento=infos['financiamento'],
-                        areas='; '.join(infos['areas']) if type(infos['areas']) == list else infos['areas'], #fix when it's not a list
+                        ds_link_pdf=edital['ds_link_pdf'],
+                        ds_agency=edital['ds_agency'].upper(),
+                        ds_titulo=infos['titulo'],
+                        ds_objetivo=infos['objetivo'],
+                        ds_elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'],
+                        dt_submissao=search_dates(infos['submissao'])[-1][1] if search_dates(infos['submissao']) else infos['submissao'],
+                        ds_financiamento=parse_money_value(infos['financiamento']),
+                        ds_areas='; '.join(parse_areas(infos['areas'])) if type(infos['areas']) == list else infos['areas'],
+                        ds_nivel_trl=infos['nivel_trl'],
                     )
 
             except Exception as e:
-                print(f"Error on pdf {edital['link_pdf']} -> {e}")
+                print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
                 pass
     else:
         raise Exception(f"No pdfs found in {scraping_db.table_name} table!")

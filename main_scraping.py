@@ -39,8 +39,10 @@ def get_pdf_links_from_agency(agency_name):
     selector = config.get(agency_name, 'selector')
     depth = int(config.get(agency_name, 'depth'))
     verify = bool(config.get(agency_name, 'verify'))
+    pagination_range = int(config.get(agency_name, 'pagination_range')) if config.get(agency_name, 'pagination_range') != '' else None
+    max_pagination_pages = int(config.get(agency_name, 'max_pagination_pages')) if config.get(agency_name, 'max_pagination_pages') != '' else None
 
-    pdf_scraping = PDFScraping(agency_name, host, selector, depth, verify)
+    pdf_scraping = PDFScraping(agency_name, host, selector, depth, verify, pagination_range, max_pagination_pages)
     pdfs_links = pdf_scraping.get_pdfs_links()
 
     return pdfs_links
@@ -136,7 +138,7 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
                     )                    
                     if predicted_class == 1 and probabilities[0][predicted_class] > edital_threshold:
                         editals.append(pdf)
-                        db.insert_data(link_pdf=pdf.host, agency=pdf.name, created_at=pdf.created)
+                        db.insert_data(ds_link_pdf=pdf.host, ds_agency=pdf.name, dt_pdf_file_date=pdf.created)
                 else:
                     raise Exception(f"PDF {pdf.host} contais few pages {doc_num_pages}!")
         except sqlite3.Error as e:
@@ -149,10 +151,12 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
     return editals
 
 if __name__ == '__main__':
-    agency = "funcap"
-    editais = get_editais_from_agency(
-        agency,
-    )
+    config = ConfigParser()
+    config.read(os.path.join(constants.CONFIG_PATH, constants.SITES_CONFIG_FILE))
 
-    for i in editais:
-        print(i.host)
+    pdfs = []
+
+    for agency in tqdm(list(config.keys())[1:]):
+        editais = get_editais_from_agency(agency)
+        pdfs.extend(editais)
+#%%

@@ -7,5 +7,5 @@ class Edital(BaseModel):
     elegibilidade: List[str] = Field(..., description='critérios de elegibilidade do edital')
     submissao: str = Field(..., description='data de submissao do edital')
     financiamento: str = Field(..., description='valor do financiamento do edital')
-    areas: List[str] = Field(..., description='areas do edital', min_items=1)
-    bolsa: bool = Field(..., description='se o financiamento é bolsa', enum=[True, False])
+    areas: List[str] = Field(..., description='areas de conhecimento do edital', min_items=1)
+    nivel_trl: str = Field(..., description='nivel de maturidade tecnológica (TRLs)')

@@ -13,12 +13,14 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
 
 class PDFScraping:
-    def __init__(self, name, host, selector, depth, verify=True) -> None:
+    def __init__(self, name, host, selector, depth, verify=True, pagination_range=None, max_pagination_pages=4) -> None:
         self.name = name
         self.host = host
         self.selector = selector
         self.depth_search = depth
         self.verify = verify
+        self.pagination_range = pagination_range
+        self.max_pagination_pages = max_pagination_pages
         self.user_agent = UserAgent() 
         self.session = HTMLSession()
         self.session.mount("https://", TLSAdapter())
@@ -142,34 +144,48 @@ class PDFScraping:
         
     def get_pdfs_links(self):
         """
-        Scrape the web for PDF links.
-
-        Prints the host URL being scraped, retrieves links recursively, filters PDF links,
-        and creates PDFLinkModel instances for each PDF link found.
+        Retrieves links to PDF files from a website.
 
         Returns:
-            list: A list of PDFLinkModel instances representing PDF links found on the website.
+            list: A list of PDFLinkModel objects representing PDF links found on the website.
 
-        Note:
-            This method performs web scraping to find PDF links on the specified host URL.
-            It uses the `get_links_recursive` method to recursively retrieve links from the host.
-            If a CSS selector is provided, it filters the links based on the selector.
-            It then filters the retrieved links to find PDF links using the `is_pdf_link` method.
-            Finally, it creates instances of PDFLinkModel for each PDF link found.
+        Notes:
+            This function performs web scraping on a specified website to retrieve links to PDF files.
+            It first prints the host URL being scraped. Then, it gathers links to PDF files by either
+            scraping through pagination pages or directly from the host URL, depending on the configuration.
+
+            For each link found, it checks if it points to a PDF file using the 'is_pdf_link' method.
+            If a link is indeed a PDF, it fetches the creation date of the PDF using the 'get_creation_date'
+            method and creates a PDFLinkModel object with relevant information like link, source name,
+            creation date, and the current date/time.
+
+            The function returns a list of PDFLinkModel objects containing information about the PDF links
+            found during the scraping process.
 
         Example:
-            >>> pdf_scraper = PDFScraper(...)
-            >>> pdf_links = pdf_scraper.get_pdfs_links()
-            >>> for link in pdf_links:
-            >>>     print(link.url)
-            'https://example.com/example.pdf'
+            >>> pdf_links = self.get_pdfs_links()
+            >>> for pdf_link in pdf_links:
+            >>>    print(f"PDF Link: {pdf_link.host}, Agency: {pdf_link.name}, Creation Date: {pdf_link.creation_date}")
         """
         print(f'Web scraping url: {self.host}')
-        links = self.get_links_recursive(
-            url=self.host,
-            selector_css=self.selector if self.selector != '' else None,
-            depth=self.depth_search
-        )
+        links = []
+        
+        if self.pagination_range and self.max_pagination_pages:
+            for i in range(self.max_pagination_pages):
+                page = f"{self.host}{self.pagination_range * i}/"
+                links_page = self.get_links_recursive(
+                    url=page,
+                    selector_css=self.selector if self.selector != '' else None,
+                    depth=self.depth_search,
+                    visited_urls=set()
+                )
+                links.extend(links_page)
+        else:
+            links = self.get_links_recursive(
+                    url=self.host,
+                    selector_css=self.selector if self.selector != '' else None,
+                    depth=self.depth_search
+            )
         pdfs = []
         print(f'Getting pdfs links...')
         for link in tqdm(set(links)):
@@ -177,8 +193,8 @@ class PDFScraping:
                 creation_date = self.get_creation_date(link)
                 pdfs.append(PDFLinkModel(link, self.name, creation_date, datetime.now()))
         return pdfs
-    
-    def create_hash(self, parser = 'html.parser'):
+
+    def create_hash(self):
         """
         Create a SHA-256 hash of the content of a web page.
 
@@ -201,10 +217,11 @@ class PDFScraping:
             >>> print(page_hash)
             '5a8f7ab55a7961e568640bd1437d6e55b033dfada68d727d1d1670c382c121f'
         """
+        host = self.host + '0' if self.pagination_range and self.max_pagination_pages else self.host
         try:
-            with self.session.get(self.host, headers=self.get_headers(), verify=self.verify) as response:
+            with self.session.get(host, headers=self.get_headers(), verify=self.verify) as response:
                 response.raise_for_status()
-                soup = BeautifulSoup(response.content, parser)
+                soup = BeautifulSoup(response.text, 'html.parser')
                 page_content = soup.get_text()
                 hash = hashlib.sha256(page_content.encode()).hexdigest()
                 return hash

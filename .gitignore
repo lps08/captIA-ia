@@ -161,5 +161,5 @@ cython_debug/
 
 # ignoring large files
 data/skip_s100.txt
-data/models--google--gemma-2b-it
+data/models--*
 data/.locks

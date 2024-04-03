@@ -83,7 +83,6 @@ def get_prompt(parser):
     {format_instructions}
 
     Pergunta: {question}
-    Caso não encontre, retornar o valor: 'Não encontrado'
     Answer:
     """
     return PromptTemplate(
