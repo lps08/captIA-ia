@@ -2,6 +2,8 @@
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
+from unstructured.partition.pdf import partition_pdf
+from langchain_core.documents import Document
 
 def load_doc(pdf_path):
     """
@@ -23,6 +25,44 @@ def load_doc(pdf_path):
     """
     loader = PyPDFLoader(pdf_path)
     docs = loader.load()
+    return docs
+
+def load_doc_uns(
+        pdf_path, 
+        extract_images=False, 
+        infer_table_structure=True, 
+        languages=['por'], 
+        chunking_strategy="by_title", 
+        strategy='auto',
+        max_characters=1000,
+        new_after_n_chars=800,
+        combine_text_under_n_chars=200,
+    ):
+    raw_pdf_elements = partition_pdf(
+        filename=pdf_path,
+        extract_images_in_pdf=extract_images,
+        infer_table_structure=infer_table_structure,
+        languages=languages,
+        chunking_strategy=chunking_strategy,
+        strategy=strategy,
+        max_characters=max_characters,
+        new_after_n_chars=new_after_n_chars,
+        combine_text_under_n_chars=combine_text_under_n_chars,
+    )
+    
+    table_elements = []
+    text_elements = []
+
+    for element in raw_pdf_elements:
+        if "unstructured.documents.elements.Table" in str(type(element)):
+            if str(element) != '':
+                table_elements.append(str(element))
+        elif "unstructured.documents.elements.CompositeElement" in str(type(element)):
+            if str(element) != '':
+                text_elements.append(str(element))
+
+    docs = [Document(page_content=text) for text in table_elements + text_elements]
+
     return docs
 
 def create_retriever(doc, embeddings, search_algorithm_type, k, fetch_k, create_spliter, chunk_size=None, chunk_overlap=None):
@@ -65,13 +105,14 @@ def create_retriever(doc, embeddings, search_algorithm_type, k, fetch_k, create_
 def create_retriever_from_pdf(
         pdf_path, 
         embeddings,
+        use_unstructured=True,
         search_algorithm_type='mmr',
         k=50,
         fetch_k=100,
         create_spliter=True,
         chunk_size=1024,
         chunk_overlap=512,
-        ):
+    ):
     """
     Create a retriever for text retrieval from a PDF document.
 
@@ -99,15 +140,29 @@ def create_retriever_from_pdf(
         >>> embeddings = get_embeddings_model()
         >>> retriever = create_retriever_from_pdf(pdf_path, embeddings)
     """
-    doc = load_doc(pdf_path)
-    retriever = create_retriever(
-        doc, 
-        embeddings, 
-        search_algorithm_type, 
-        k,
-        fetch_k,
-        create_spliter,
-        chunk_size,
-        chunk_overlap,
-    )
+    if use_unstructured:
+        doc = load_doc_uns(pdf_path)
+        retriever = create_retriever(
+            doc, 
+            embeddings, 
+            search_algorithm_type, 
+            k,
+            fetch_k,
+            False,
+            chunk_size,
+            chunk_overlap,
+        )
+    else:
+        doc = load_doc(pdf_path)
+        retriever = create_retriever(
+            doc, 
+            embeddings, 
+            search_algorithm_type, 
+            k,
+            fetch_k,
+            create_spliter,
+            chunk_size,
+            chunk_overlap,
+        )
+
     return retriever

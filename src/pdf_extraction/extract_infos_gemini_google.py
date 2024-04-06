@@ -19,6 +19,7 @@ def extract_infos(
         llm,
         embeddings,
         parser,
+        use_unstructured=False,
         search_algorithm='mmr',
         k=50, 
         fetch_k=100, 
@@ -64,8 +65,8 @@ def extract_infos(
         >>> embeddings = get_embeddings_model()
         >>> extracted_info = extract_info_edital(pdf_path, llm, embeddings)
     """
-    query = "'Qual o título completo do documento? Qual o objetivo do edital? Quais todos os critérios de elegibilidade? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total (retorne Não encontrado se não conter o valor)? Quais as áreas da chamada? Qual o nível de maturidade tecnológica (TRL) necessário?'"
-    retriever = create_retriever_from_pdf(pdf_path, embeddings, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
+    query = 'Qual o título do documento? Qual o numero da chamada ou edital? Qual o objetivo da chamada? Liste os critérios de elegibilidade? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total (retorne Não encontrado se não conter o valor)? Liste as áreas de conhecimento? Qual o nível de maturidade tecnológica (TRL) necessário?'
+    retriever = create_retriever_from_pdf(pdf_path, embeddings, use_unstructured, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
     res = qa_llm(query, llm, retriever, parser)
     res = parser.parse(res)
     if res.submissao == 'Não encontrado':
