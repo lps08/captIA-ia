@@ -48,7 +48,8 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
             pdf_path,
             llm=gemini_llm,
             embeddings=get_google_embeddings(),
-            parser=get_parser()
+            parser=get_parser(),
+            use_unstructured=True,
         )
         return infos
 
@@ -124,6 +125,37 @@ def parse_money_value(text):
     res = money_regex.search(text)
     return res.group() if res else text
 
+def parse_edital_number(text):
+    """
+    Parses and extracts an edital number from a given text.
+
+    This function uses a regular expression to search for and extract edital numbers from the input text. 
+    It identifies edital numbers as sequences of digits separated by a forward slash (/), typically in 
+    the format "### / ####".
+
+    Args:
+        text (str): The text from which to extract the edital number.
+
+    Returns:
+        str: The extracted edital number from the text, or 'Não encontrado' if no edital number is found.
+
+    Notes:
+        The regular expression used in this function assumes that the edital number follows the format 
+        "### / ####". It may not capture all possible variations of edital number formats, and may require 
+        adjustments for specific cases.
+
+    Example:
+        To parse and extract an edital number from a text, you can use this function as follows:
+
+        >>> text = "O edital número 123/2022 foi lançado recentemente."
+        >>> edital_number = parse_edital_number(text)
+        >>> print(edital_number)
+        '123/2022'
+    """
+    number_regex = re.compile(r"\b(?!(?:260003\/011347\/2023))(\d{1,3}\s?\/\s?\d{4})\b")
+    res = number_regex.search(text)
+    return res.group() if res else 'Não encontrado'
+
 def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
     Extracts information from PDF files stored in the database and saves them into another database.
@@ -170,6 +202,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_link_pdf=edital['ds_link_pdf'],
                         ds_agency=edital['ds_agency'].upper(),
                         ds_titulo=infos['titulo'],
+                        ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=infos['objetivo'],
                         ds_elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'],
                         dt_submissao=search_dates(infos['submissao'])[-1][1] if search_dates(infos['submissao']) else infos['submissao'],

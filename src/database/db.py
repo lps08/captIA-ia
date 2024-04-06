@@ -362,8 +362,9 @@ class EditalDatabse(DatabaseTable):
         self.cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {self.table_name} (
             ds_link_pdf TEXT PRIMARY KEY,
-            ds_agency TEXT,
             ds_titulo TEXT,
+            ds_numero TEXT,
+            ds_agency TEXT,
             ds_objetivo TEXT,
             ds_elegibilidade TEXT,
             dt_submissao TEXT,
