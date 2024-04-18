@@ -35,8 +35,8 @@ def load_doc_uns(
         chunking_strategy="by_title", 
         strategy='auto',
         max_characters=1000,
-        new_after_n_chars=800,
-        combine_text_under_n_chars=200,
+        new_after_n_chars=750,
+        combine_text_under_n_chars=500,
     ):
     raw_pdf_elements = partition_pdf(
         filename=pdf_path,

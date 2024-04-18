@@ -51,7 +51,7 @@ def get_parser():
 
 def get_gemini_model(
         name=constants.GOOGLE_GEMINI_MODEL_NAME, 
-        temperature=0.3,
+        temperature=0.1,
         top_p=0.6, 
         top_k=1,
         convert_system_message_to_human=True, 
