@@ -152,9 +152,53 @@ def parse_edital_number(text):
         >>> print(edital_number)
         '123/2022'
     """
-    number_regex = re.compile(r"\b(?!(?:260003\/011347\/2023))(\d{1,3}\s?\/\s?\d{4})\b")
+    number_regex = re.compile(r"\b(?!(?:\d+\/\d+\/\d+))(\d{1,3}\s?\/\s?\d{4})\b")
     res = number_regex.search(text)
     return res.group() if res else 'Não encontrado'
+
+def parse_title(list_titles, min_lenght=18, min_words_merge=5):
+    """
+    Parses and extracts a title from a list of titles.
+
+    This function processes a list of titles to extract a single, coherent title based on certain criteria. It merges short titles or titles containing specific keywords into a longer title, and removes unnecessary characters.
+
+    Args:
+        list_titles (list): A list of titles to process.
+        min_lenght (int): The minimum length required for a title to be considered valid. Defaults to 18.
+        min_words_merge (int): The minimum number of words required in a title to prevent merging with other titles. Defaults to 5.
+
+    Returns:
+        str: The parsed and extracted title.
+
+    Notes:
+        This function aims to extract a single, comprehensive title from a list of titles by merging short titles or titles containing specific keywords into a longer title. It may not capture all variations of title formats, and may require adjustments for specific cases.
+
+    Example:
+        To parse and extract a title from a list of titles, you can use this function as follows:
+
+        >>> list_of_titles = ["Chamada para propostas", "Edital de seleção de projetos"]
+        >>> title = parse_title(list_of_titles)
+        >>> print(title)
+        'Edital de seleção de projetos'
+    """
+    chamada_edital_regex = re.compile(r'\b(edital|chamada)\b', re.IGNORECASE)
+    title = list_titles[-1]
+
+    if len(title) <= min_lenght or (chamada_edital_regex.search(title) and len(title.split()) <= min_words_merge):
+        title = ' '.join(list_titles[-2:])
+
+    title_splitted = title.split('–')
+    title_splitted = [t.strip() for t in title_splitted]
+
+    if len(title_splitted) > 1:
+        range_list_accepted = -1
+        for i in range(1,len(title_splitted)):
+            new_title = ' '.join(title_splitted[range_list_accepted:]).strip()
+            if len(new_title) <= min_lenght:
+                range_list_accepted -= 1
+        title = new_title if len(new_title) >= min_lenght else title
+
+    return title
 
 def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
@@ -201,7 +245,8 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                     editals_db.insert_data(
                         ds_link_pdf=edital['ds_link_pdf'],
                         ds_agency=edital['ds_agency'].upper(),
-                        ds_titulo=infos['titulo'],
+                        ds_titulo=parse_title(infos['titulo']),
+                        ds_titulo_completo = infos['titulo_completo'].replace('\n', ' '),
                         ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=infos['objetivo'],
                         ds_elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'],

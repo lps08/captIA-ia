@@ -363,6 +363,7 @@ class EditalDatabse(DatabaseTable):
             CREATE TABLE IF NOT EXISTS {self.table_name} (
             ds_link_pdf TEXT PRIMARY KEY,
             ds_titulo TEXT,
+            ds_titulo_completo TEXT,
             ds_numero TEXT,
             ds_agency TEXT,
             ds_objetivo TEXT,
