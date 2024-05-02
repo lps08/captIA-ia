@@ -200,6 +200,37 @@ def parse_title(list_titles, min_lenght=18, min_words_merge=5):
 
     return title
 
+def parse_datetime(text, defaul_return="Fluxo contínuo", language='br', date_order='DMY', day_of_month='first'):
+    """
+    Parses datetime information from text.
+
+    This function parses datetime information from text using the `search_dates` function from the `dateparser` library. It searches for datetime expressions in the specified language and returns the parsed date.
+
+    Args:
+        text (str): The text containing datetime information.
+        defaul_return (str): The default value to return if no date is found. Defaults to "Fluxo contínuo".
+        language (str): The language of the datetime expressions in the text. Defaults to 'br' (Brazilian Portuguese).
+        date_order (str): The order of date components (day, month, year) in the datetime expressions. Defaults to 'DMY' (day, month, year).
+        day_of_month (str): The preference for day of the month ('first' or 'last') in ambiguous cases. Defaults to 'first'.
+
+    Returns:
+        str: The parsed datetime information, or the default value if no date is found.
+
+    Notes:
+        This function utilizes the `search_dates` function from the `dateparser` library to parse datetime expressions from text. It allows for flexible parsing of datetime information in various languages and formats.
+
+    Example:
+        To parse datetime information from text, you can use this function as follows:
+
+        >>> text = "A data limite de submissão é 30 de junho de 2022."
+        >>> parsed_date = parse_datetime(text)
+        >>> print(parsed_date)
+        '2022-06-30 00:00:00'
+    """
+    date_found = search_dates(text, languages=[language], settings={'DATE_ORDER': date_order, 'PREFER_DAY_OF_MONTH': day_of_month})
+    date = date_found[-1][1] if date_found else defaul_return
+    return date
+
 def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
     Extracts information from PDF files stored in the database and saves them into another database.
@@ -250,7 +281,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=infos['objetivo'],
                         ds_elegibilidade='; '.join(infos['elegibilidade']) if type(infos['elegibilidade']) == list else infos['elegibilidade'],
-                        dt_submissao=search_dates(infos['submissao'])[-1][1] if search_dates(infos['submissao']) else infos['submissao'],
+                        dt_submissao=parse_datetime(infos['submissao']),
                         ds_financiamento=parse_money_value(infos['financiamento']),
                         ds_areas='; '.join(parse_areas(infos['areas'])) if type(infos['areas']) == list else infos['areas'],
                         ds_nivel_trl=infos['nivel_trl'],
