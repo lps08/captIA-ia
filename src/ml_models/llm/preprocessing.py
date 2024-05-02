@@ -50,18 +50,17 @@ def load_doc_uns(
         combine_text_under_n_chars=combine_text_under_n_chars,
     )
     
-    table_elements = []
     text_elements = []
 
     for element in raw_pdf_elements:
         if "unstructured.documents.elements.Table" in str(type(element)):
             if str(element) != '':
-                table_elements.append(str(element))
+                text_elements.append(str(element.metadata.text_as_html))
         elif "unstructured.documents.elements.CompositeElement" in str(type(element)):
             if str(element) != '':
                 text_elements.append(str(element))
 
-    docs = [Document(page_content=text) for text in table_elements + text_elements]
+    docs = [Document(page_content=text) for text in text_elements]
 
     return docs
 
