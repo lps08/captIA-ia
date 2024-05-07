@@ -424,7 +424,7 @@ def parse_nivel_trl(text):
         >>> print(trl_level)
         '5 a 7'
     """
-    nivel_trl_regex = re.compile(r"\b[0-9](?:\s*(?:a|e|ou)\s*[0-9])+\b", re.IGNORECASE)
+    nivel_trl_regex = re.compile(r"\b([0-9],\s*)?[0-9](?:\s*(?:a|e|ou)\s*[0-9])+\b", re.IGNORECASE)
     res = nivel_trl_regex.search(text)
     if res:
         return res.group()
