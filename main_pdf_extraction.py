@@ -15,15 +15,16 @@ import requests
 import tempfile
 from dateparser.search import search_dates
 import re
+from tqdm.notebook import tqdm
 
 langchain.debug = True #for debuging 
 
-def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
+def get_pdf_infos(edital_path, is_document_pdf, model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
     Extracts information from a PDF file using different models based on the specified ModelCard.
 
     Args:
-        pdf_path (str): The path to the PDF file.
+        edital_path (str): The path to the PDF file.
         model_to_use (ModelCard): The model card to use for extraction.
 
     Returns:
@@ -36,19 +37,20 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         - For manual extraction using Word2Vec: `extract_infos_manual.py`
     
     Example:
-        >>> pdf_path = 'example.pdf'
+        >>> edital_path = 'example.pdf'
         >>> model_to_use = ModelCard.GEMINI_GOOGLE
-        >>> infos = get_pdf_infos(pdf_path, model_to_use)
+        >>> infos = get_pdf_infos(edital_path, model_to_use)
         >>> print(infos)
     """
     if model_to_use == ModelCard.GEMINI_GOOGLE:
         gemini_llm = get_gemini_model()
 
         infos = extract_infos_gemini_google.extract_infos(
-            pdf_path,
+            edital_path,
             llm=gemini_llm,
             embeddings=get_google_embeddings(),
             parser=get_parser(),
+            is_document_pdf=is_document_pdf,
             use_unstructured=True,
         )
         return infos
@@ -57,7 +59,7 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         gemma_llm = get_gemma_model()
         
         infos = extract_infos_gemma.extract_infos(
-            pdf_path,
+            edital_path,
             llm=gemma_llm,
             embeddings=get_huggingface_embeddings(),
         )
@@ -66,7 +68,7 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
     elif model_to_use == ModelCard.MANUAL:
         word2vec_model = load_model(os.path.join(constants.DATA_PATH, constants.WORD2VEC_MODEL_FILE))
         infos = extract_infos_manual.extract_infos(
-            pdf_path, 
+            edital_path, 
             model=word2vec_model,
         )
         return infos
