@@ -157,7 +157,7 @@ def parse_list(text_list):
     text = remove_unknown_characters(text)
     return text
 
-def parse_areas(areas_list, max_size=3):
+def parse_areas(areas_list, max_size=3, default_value="Nao encontrado"):
     """
     Parses and retrieves a subset of areas of knowledge from a list of areas.
 
@@ -180,10 +180,13 @@ def parse_areas(areas_list, max_size=3):
         ['Engineering', 'Physics', 'Mathematics']
 
     """
-    areas_list = [i.strip() for i in areas_list if i != '']
-    areas_list.sort(key=len)
-    areas_list_top = areas_list[:max_size]
-    text_areas = parse_list(areas_list_top)
+    if len(areas_list) > 1:
+        areas_list = [i.strip() for i in areas_list if i != '']
+        areas_list.sort(key=len)
+        areas_list_top = areas_list[:max_size]
+        text_areas = parse_list(areas_list_top)
+    else:
+        text_areas = default_value
     return text_areas
 
 def parse_elegibilidade(text):
