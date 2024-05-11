@@ -348,6 +348,7 @@ class ScrapingDatabase(DatabaseTable):
             CREATE TABLE IF NOT EXISTS {self.table_name} (
             ds_link_pdf TEXT PRIMARY KEY NOT NULL,
             ds_agency TEXT NOT NULL,
+            is_document_pdf INTEGER,
             dt_pdf_file_date TEXT,
             dt_created_at TEXT
         )''')
@@ -372,6 +373,7 @@ class EditalDatabse(DatabaseTable):
             ds_financiamento TEXT,
             ds_areas TEXT,
             ds_nivel_trl,
+            is_document_pdf INTEGER,
             dt_created_at TEXT
         )''')
 
