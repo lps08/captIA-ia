@@ -11,14 +11,17 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
+import re
 
 class PDFScraping:
-    def __init__(self, name, host, selector, depth, verify=True, pagination_range=None, max_pagination_pages=4) -> None:
+    def __init__(self, name, host, selector, depth, verify=True, document_pdf=True, page_content_link_regex=None, pagination_range=None, max_pagination_pages=4) -> None:
         self.name = name
         self.host = host
         self.selector = selector
         self.depth_search = depth
         self.verify = verify
+        self.pdf_document = document_pdf
+        self.page_content_link_regex = page_content_link_regex
         self.pagination_range = pagination_range
         self.max_pagination_pages = max_pagination_pages
         self.user_agent = UserAgent() 
@@ -119,7 +122,7 @@ class PDFScraping:
         visited_urls.add(url)
 
         try:
-            with self.session.get(url, headers=self.get_headers(), verify=self.verify) as response:
+            with self.session.get(url, verify=self.verify) as response:
                 response.raise_for_status()
                 links = []
                 if selector_css:
@@ -130,7 +133,7 @@ class PDFScraping:
                     links = response.html.find('body', first=True).links
 
                 absolute_links = [urljoin(url, link) for link in links]
-                print(f"Links depth {depth} from {url}:\n{absolute_links}\n")
+                # print(f"Links depth {depth} from {url}:\n{absolute_links}\n")
 
                 recursive_links = []
                 for link in absolute_links:
@@ -193,6 +196,64 @@ class PDFScraping:
                 creation_date = self.get_creation_date(link)
                 pdfs.append(PDFLinkModel(link, self.name, creation_date, datetime.now()))
         return pdfs
+
+    def get_page_content_links(self):
+        """
+        Retrieves all relevant links to page content from the specified web page.
+
+        This function extracts all links from the provided host URL, applying a recursive link gathering based on
+        the specified CSS selector and search depth. It then filters these links against a pre-defined regex pattern to
+        identify relevant content links.
+
+        Returns:
+            list: A list of strings, each a URL that matches the defined content link pattern.
+
+        Notes:
+            - The `get_links_recursive` method is used to fetch links recursively from the `host` attribute of the object,
+            up to the `depth_search` levels deep. The CSS selector used for link extraction is taken from the `selector`
+            attribute if it is not empty.
+            - The method filters the fetched links using a regular expression defined in `page_content_link_regex` to ensure
+            only relevant links are included in the result.
+
+        Example:
+            Assuming the `host` attribute is set to 'http://example.com', `selector` is '.content', `depth_search` is 2, and
+            `page_content_link_regex` is set to include links ending with '.html', this method might return URLs like:
+            ['http://example.com/info.html', 'http://example.com/about.html']
+        """
+        links = self.get_links_recursive(
+            url=self.host,
+            selector_css=self.selector if self.selector != '' else None,
+            depth=self.depth_search,
+        )
+        link_regex = re.compile(rf"{self.page_content_link_regex}")
+        links_filtered = [PDFLinkModel(link, self.name, None, datetime.now()) for link in links if link_regex.fullmatch(link)]
+        
+        return links_filtered
+
+    def get_links(self):
+        """
+        Retrieves relevant links from a document, differentiating between PDF documents and HTML pages.
+
+        This method checks whether the target document is a PDF or an HTML page and retrieves links accordingly.
+        If the document is a PDF (`pdf_document` is True), it retrieves PDF links; otherwise, it retrieves HTML content links.
+
+        Returns:
+            list: A list of links either to PDF files or to HTML content pages, depending on the document type.
+
+        Notes:
+            - The `get_pdfs_links` method is used to extract links from a PDF document.
+            - The `get_page_content_links` method is used to extract content links from an HTML page.
+            - This method simplifies the link retrieval process by automatically determining the document type and
+            using the appropriate link retrieval method.
+
+        Example:
+            If `pdf_document` is True, the method might return PDF URLs like ['http://example.com/report1.pdf', 'http://example.com/report2.pdf'];
+            if `pdf_document` is False, it might return HTML content links such as ['http://example.com/info.html', 'http://example.com/about.html'].
+        """
+        if self.pdf_document:
+            return self.get_pdfs_links()
+        else:
+            return self.get_page_content_links()
 
     def create_hash(self):
         """

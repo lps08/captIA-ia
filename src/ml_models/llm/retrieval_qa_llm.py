@@ -77,7 +77,7 @@ def get_prompt(parser):
         >>> prompt = get_prompt(my_parser)
     """
     prompt_template_instructions = """
-    Use os seguinte contexto para reponder todas as perguntas até o final: 
+    Você é um assistente e responde o que é perguntado. Use as seguintes partes do contexto para responder à pergunta no final. Se não souber a resposta, basta dizer que não sabe retornando 'Não encontrado', não tente inventar uma resposta! Responda apenas o que for perguntado, por favor! Não inclua comentários ou notas na resposta gerada!: 
     {context}
     
     {format_instructions}

@@ -15,15 +15,16 @@ import requests
 import tempfile
 from dateparser.search import search_dates
 import re
+from tqdm.notebook import tqdm
 
 langchain.debug = True #for debuging 
 
-def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
+def get_pdf_infos(edital_path, is_document_pdf, model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
     Extracts information from a PDF file using different models based on the specified ModelCard.
 
     Args:
-        pdf_path (str): The path to the PDF file.
+        edital_path (str): The path to the PDF file.
         model_to_use (ModelCard): The model card to use for extraction.
 
     Returns:
@@ -36,19 +37,20 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         - For manual extraction using Word2Vec: `extract_infos_manual.py`
     
     Example:
-        >>> pdf_path = 'example.pdf'
+        >>> edital_path = 'example.pdf'
         >>> model_to_use = ModelCard.GEMINI_GOOGLE
-        >>> infos = get_pdf_infos(pdf_path, model_to_use)
+        >>> infos = get_pdf_infos(edital_path, model_to_use)
         >>> print(infos)
     """
     if model_to_use == ModelCard.GEMINI_GOOGLE:
         gemini_llm = get_gemini_model()
 
         infos = extract_infos_gemini_google.extract_infos(
-            pdf_path,
+            edital_path,
             llm=gemini_llm,
             embeddings=get_google_embeddings(),
             parser=get_parser(),
+            is_document_pdf=is_document_pdf,
             use_unstructured=True,
         )
         return infos
@@ -57,7 +59,7 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
         gemma_llm = get_gemma_model()
         
         infos = extract_infos_gemma.extract_infos(
-            pdf_path,
+            edital_path,
             llm=gemma_llm,
             embeddings=get_huggingface_embeddings(),
         )
@@ -66,7 +68,7 @@ def get_pdf_infos(pdf_path, model_to_use:ModelCard = constants.MODEL_TO_USE):
     elif model_to_use == ModelCard.MANUAL:
         word2vec_model = load_model(os.path.join(constants.DATA_PATH, constants.WORD2VEC_MODEL_FILE))
         infos = extract_infos_manual.extract_infos(
-            pdf_path, 
+            edital_path, 
             model=word2vec_model,
         )
         return infos
@@ -155,7 +157,7 @@ def parse_list(text_list):
     text = remove_unknown_characters(text)
     return text
 
-def parse_areas(areas_list, max_size=3):
+def parse_areas(areas_list, max_size=3, default_value="Nao encontrado"):
     """
     Parses and retrieves a subset of areas of knowledge from a list of areas.
 
@@ -178,10 +180,13 @@ def parse_areas(areas_list, max_size=3):
         ['Engineering', 'Physics', 'Mathematics']
 
     """
-    areas_list = [i.strip() for i in areas_list if i != '']
-    areas_list.sort(key=len)
-    areas_list_top = areas_list[:max_size]
-    text_areas = parse_list(areas_list_top)
+    if len(areas_list) > 1:
+        areas_list = [i.strip() for i in areas_list if i != '']
+        areas_list.sort(key=len)
+        areas_list_top = areas_list[:max_size]
+        text_areas = parse_list(areas_list_top)
+    else:
+        text_areas = default_value
     return text_areas
 
 def parse_elegibilidade(text):
@@ -466,22 +471,30 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     scraping_db = ScrapingDatabase(db_path, constants.SCRAPING_TABLE_NAME)
     editals_db = EditalDatabse(db_path, constants.EDITALS_TABLE_NAME)
     
-    editals_saved = scraping_db.get_all()
-    if len(editals_saved) > 0:
-        for edital in editals_saved:
-            try:
-                response = requests.get(edital['ds_link_pdf'])
-                response.raise_for_status()
+    editals_links_saved = scraping_db.get_all()
+    editals_info_extracted = editals_db.get_all()
+    links_info_editals_extracted = [e["ds_link_pdf"] for e in editals_info_extracted]
 
-                with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
-                    temp_pdf_file.write(response.content)
-                    temp_pdf_path = temp_pdf_file.name
-                    infos = get_pdf_infos(temp_pdf_path, model_to_use)
+    if len(editals_links_saved) > 0:
+        for edital in tqdm(editals_links_saved):
+            if edital['ds_link_pdf'] not in links_info_editals_extracted:
+                try:
+                    print(f"Extracting {edital['ds_agency'].upper()} -> {edital['ds_link_pdf']}")
+                    if edital['is_document_pdf']:
+                        response = requests.get(edital['ds_link_pdf'])
+                        response.raise_for_status()
+
+                        with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
+                            temp_pdf_file.write(response.content)
+                            temp_pdf_path = temp_pdf_file.name
+                            infos = get_pdf_infos(temp_pdf_path, model_to_use)
+                    else:
+                        infos = get_pdf_infos(edital['ds_link_pdf'], edital['is_document_pdf'], model_to_use)
 
                     editals_db.insert_data(
                         ds_link_pdf=edital['ds_link_pdf'],
                         ds_agency=edital['ds_agency'].upper(),
-                        ds_titulo=parse_title(infos['titulo']),
+                        ds_titulo=parse_title(infos['titulos']),
                         ds_titulo_completo = parse_full_title(infos['titulo_completo']),
                         ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=parse_objetivo(infos['objetivo']),
@@ -490,11 +503,12 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_financiamento=parse_money_value(infos['financiamento']),
                         ds_areas=parse_areas(infos['areas']),
                         ds_nivel_trl=parse_nivel_trl(infos['nivel_trl']),
+                        is_document_pdf=edital['is_document_pdf']
                     )
 
-            except Exception as e:
-                print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
-                pass
+                except Exception as e:
+                    print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
+                    pass
     else:
         raise Exception(f"No pdfs found in {scraping_db.table_name} table!")
 
@@ -502,7 +516,4 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     editals_db.close()
     
 if __name__ == '__main__':
-    # PDF_PATH = os.path.join(constants.EDITALS_DATASET_PATH, "cnpq.pdf")
-    # res = get_pdf_infos(PDF_PATH)
-    # print(res)
     extract_pdf_infos_db()
