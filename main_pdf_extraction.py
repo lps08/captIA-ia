@@ -468,22 +468,30 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     scraping_db = ScrapingDatabase(db_path, constants.SCRAPING_TABLE_NAME)
     editals_db = EditalDatabse(db_path, constants.EDITALS_TABLE_NAME)
     
-    editals_saved = scraping_db.get_all()
-    if len(editals_saved) > 0:
-        for edital in editals_saved:
-            try:
-                response = requests.get(edital['ds_link_pdf'])
-                response.raise_for_status()
+    editals_links_saved = scraping_db.get_all()
+    editals_info_extracted = editals_db.get_all()
+    links_info_editals_extracted = [e["ds_link_pdf"] for e in editals_info_extracted]
 
-                with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
-                    temp_pdf_file.write(response.content)
-                    temp_pdf_path = temp_pdf_file.name
-                    infos = get_pdf_infos(temp_pdf_path, model_to_use)
+    if len(editals_links_saved) > 0:
+        for edital in tqdm(editals_links_saved):
+            if edital['ds_link_pdf'] not in links_info_editals_extracted:
+                try:
+                    print(f"Extracting {edital['ds_agency'].upper()} -> {edital['ds_link_pdf']}")
+                    if edital['is_document_pdf']:
+                        response = requests.get(edital['ds_link_pdf'])
+                        response.raise_for_status()
+
+                        with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
+                            temp_pdf_file.write(response.content)
+                            temp_pdf_path = temp_pdf_file.name
+                            infos = get_pdf_infos(temp_pdf_path, model_to_use)
+                    else:
+                        infos = get_pdf_infos(edital['ds_link_pdf'], edital['is_document_pdf'], model_to_use)
 
                     editals_db.insert_data(
                         ds_link_pdf=edital['ds_link_pdf'],
                         ds_agency=edital['ds_agency'].upper(),
-                        ds_titulo=parse_title(infos['titulo']),
+                        ds_titulo=parse_title(infos['titulos']),
                         ds_titulo_completo = parse_full_title(infos['titulo_completo']),
                         ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=parse_objetivo(infos['objetivo']),
@@ -492,11 +500,12 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_financiamento=parse_money_value(infos['financiamento']),
                         ds_areas=parse_areas(infos['areas']),
                         ds_nivel_trl=parse_nivel_trl(infos['nivel_trl']),
+                        is_document_pdf=edital['is_document_pdf']
                     )
 
-            except Exception as e:
-                print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
-                pass
+                except Exception as e:
+                    print(f"Error on pdf {edital['ds_link_pdf']} -> {e}")
+                    pass
     else:
         raise Exception(f"No pdfs found in {scraping_db.table_name} table!")
 
@@ -504,7 +513,4 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     editals_db.close()
     
 if __name__ == '__main__':
-    # PDF_PATH = os.path.join(constants.EDITALS_DATASET_PATH, "cnpq.pdf")
-    # res = get_pdf_infos(PDF_PATH)
-    # print(res)
     extract_pdf_infos_db()
