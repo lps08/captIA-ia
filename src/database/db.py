@@ -350,6 +350,7 @@ class ScrapingDatabase(DatabaseTable):
             ds_parent_link TEXT,
             ds_agency TEXT NOT NULL,
             is_document_pdf INTEGER,
+            use_attachment_files INTEGER,
             dt_pdf_file_date TEXT,
             dt_created_at TEXT
         )''')

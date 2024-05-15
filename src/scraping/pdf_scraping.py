@@ -14,7 +14,7 @@ from pdfminer.pdfdocument import PDFDocument
 import re
 
 class PDFScraping:
-    def __init__(self, name, host, selector, depth, verify=True, document_pdf=True, page_content_link_regex=None, two_step_pdf_check=False, pagination_range=None, max_pagination_pages=4) -> None:
+    def __init__(self, name, host, selector, depth, verify=True, document_pdf=True, page_content_link_regex=None, two_step_pdf_check=False, use_attachment_files=False, pagination_range=None, max_pagination_pages=4) -> None:
         self.name = name
         self.host = host
         self.selector = selector
@@ -23,6 +23,7 @@ class PDFScraping:
         self.pdf_document = document_pdf
         self.page_content_link_regex = page_content_link_regex
         self.two_step_pdf_check = two_step_pdf_check
+        self.use_attachment_files = use_attachment_files
         self.pagination_range = pagination_range
         self.max_pagination_pages = max_pagination_pages
         self.user_agent = UserAgent() 
@@ -198,7 +199,7 @@ class PDFScraping:
             parent_link, child_link = link
             if self.is_pdf_link(child_link):
                 creation_date = self.get_creation_date(child_link)
-                pdfs.append(PDFLinkModel(child_link, parent_link, self.name, creation_date, datetime.now()))
+                pdfs.append(PDFLinkModel(child_link, parent_link, self.name, creation_date, datetime.now(), self.use_attachment_files))
         return pdfs
 
     def get_page_content_links(self):
@@ -230,7 +231,7 @@ class PDFScraping:
             depth=self.depth_search,
         )
         link_regex = re.compile(rf"{self.page_content_link_regex}")
-        links_filtered = [PDFLinkModel(link, parent_link, self.name, None, datetime.now()) for parent_link, link in links if link_regex.fullmatch(link)]
+        links_filtered = [PDFLinkModel(link, parent_link, self.name, None, datetime.now(), self.use_attachment_files) for parent_link, link in links if link_regex.fullmatch(link)]
         
         return links_filtered
 
