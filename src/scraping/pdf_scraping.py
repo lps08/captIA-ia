@@ -14,7 +14,7 @@ from pdfminer.pdfdocument import PDFDocument
 import re
 
 class PDFScraping:
-    def __init__(self, name, host, selector, depth, verify=True, document_pdf=True, page_content_link_regex=None, pagination_range=None, max_pagination_pages=4) -> None:
+    def __init__(self, name, host, selector, depth, verify=True, document_pdf=True, page_content_link_regex=None, two_step_pdf_check=False, pagination_range=None, max_pagination_pages=4) -> None:
         self.name = name
         self.host = host
         self.selector = selector
@@ -22,6 +22,7 @@ class PDFScraping:
         self.verify = verify
         self.pdf_document = document_pdf
         self.page_content_link_regex = page_content_link_regex
+        self.two_step_pdf_check = two_step_pdf_check
         self.pagination_range = pagination_range
         self.max_pagination_pages = max_pagination_pages
         self.user_agent = UserAgent() 
@@ -55,16 +56,17 @@ class PDFScraping:
             if url.lower().endswith('.pdf'):
                 return True
             
-            response = self.session.get(url, headers={'Range': 'bytes=0-3'}, timeout=5, verify=self.verify)
-            response.raise_for_status()
-            
-            content_type = response.headers.get('Content-Type', '').lower()
-            if 'application/pdf' in content_type:
-                return True
-            
-            file_content = response.content
-            if file_content.startswith(b'%PDF'):
-                return True
+            if self.two_step_pdf_check:
+                response = self.session.get(url, headers={'Range': 'bytes=0-3'}, timeout=5, verify=self.verify)
+                response.raise_for_status()
+                
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'application/pdf' in content_type:
+                    return True
+                
+                file_content = response.content
+                if file_content.startswith(b'%PDF'):
+                    return True
 
             return False
 
@@ -119,7 +121,8 @@ class PDFScraping:
         if depth == 0 or url in visited_urls:
             return []
 
-        visited_urls.add(url)
+        visited_urls.add((None, url) if isinstance(url, str) else url)
+        url = url[1] if isinstance(url, tuple) else url
 
         try:
             with self.session.get(url, verify=self.verify) as response:
@@ -132,7 +135,7 @@ class PDFScraping:
                 else:
                     links = response.html.find('body', first=True).links
 
-                absolute_links = [urljoin(url, link) for link in links]
+                absolute_links = [(url, urljoin(url, link)) for link in links]
                 # print(f"Links depth {depth} from {url}:\n{absolute_links}\n")
 
                 recursive_links = []
@@ -192,9 +195,10 @@ class PDFScraping:
         pdfs = []
         print(f'Getting pdfs links...')
         for link in tqdm(set(links)):
-            if self.is_pdf_link(link):
-                creation_date = self.get_creation_date(link)
-                pdfs.append(PDFLinkModel(link, self.name, creation_date, datetime.now()))
+            parent_link, child_link = link
+            if self.is_pdf_link(child_link):
+                creation_date = self.get_creation_date(child_link)
+                pdfs.append(PDFLinkModel(child_link, parent_link, self.name, creation_date, datetime.now()))
         return pdfs
 
     def get_page_content_links(self):
@@ -226,7 +230,7 @@ class PDFScraping:
             depth=self.depth_search,
         )
         link_regex = re.compile(rf"{self.page_content_link_regex}")
-        links_filtered = [PDFLinkModel(link, self.name, None, datetime.now()) for link in links if link_regex.fullmatch(link)]
+        links_filtered = [PDFLinkModel(link, parent_link, self.name, None, datetime.now()) for parent_link, link in links if link_regex.fullmatch(link)]
         
         return links_filtered
 

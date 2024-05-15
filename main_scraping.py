@@ -131,6 +131,7 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
     model, tokenizer = load_model(constants.BERT_MODEL_NAME, num_labels)
     scraping_db_path = os.path.join(constants.DATA_PATH, constants.SQLITE_DB_FILE)
     db = ScrapingDatabase(scraping_db_path, constants.SCRAPING_TABLE_NAME)
+    editals_links_storaged = [e['ds_link_pdf'] for e in db.get_all()]
     editals = []
 
     if is_document_pdf:
@@ -148,10 +149,11 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
                             model=model,
                             tokenizer=tokenizer,
                             document_text=document,
-                        )                    
-                        if predicted_class == 1 and probabilities[0][predicted_class] > edital_threshold:
+                        )
+                        if predicted_class == 1 and probabilities[0][predicted_class] > edital_threshold and pdf.host not in editals_links_storaged:
+                            db.insert_data(ds_link_pdf=pdf.host, ds_parent_link=pdf.parent_host, ds_agency=pdf.name, is_document_pdf=is_document_pdf, dt_pdf_file_date=pdf.created)
                             editals.append(pdf)
-                            db.insert_data(ds_link_pdf=pdf.host, ds_agency=pdf.name, is_document_pdf=is_document_pdf, dt_pdf_file_date=pdf.created)
+
                     else:
                         raise Exception(f"PDF {pdf.host} contais few pages {doc_num_pages}!")
             except sqlite3.Error as e:
@@ -161,9 +163,10 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
                 # print(f"Error: {e}")
                 pass
     else:
-        for page_content in tqdm(pdfs_links): 
-            editals.append(page_content)
-            db.insert_data(ds_link_pdf=page_content.host, ds_agency=page_content.name, dt_pdf_file_date=page_content.created)
+        for page_content in tqdm(pdfs_links):
+            if page_content.host not in editals_links_storaged:
+                editals.append(page_content)
+                db.insert_data(ds_link_pdf=page_content.host, ds_parent_link=page_content.parent_host, ds_agency=page_content.name, is_document_pdf=is_document_pdf, dt_pdf_file_date=page_content.created)
     
     db.close()
     return editals
@@ -171,20 +174,13 @@ def get_editais_from_agency(agency_name, num_labels=2, max_content_lenght = 3000
 def get_editals_links_from_config():
     config = ConfigParser()
     config_path = os.path.join(constants.CONFIG_PATH, constants.SITES_CONFIG_FILE)
-    scraping_db_path = os.path.join(constants.DATA_PATH, constants.SQLITE_DB_FILE)
     config.read(config_path)
-    db = ScrapingDatabase(scraping_db_path, constants.SCRAPING_TABLE_NAME)
-
-    data = db.get_all()
-    agencys = set([d['ds_agency'] for d in data])
-    db.close()
 
     for agency in tqdm(list(config.keys())[1:]):
-        if agency not in agencys:
-            editais = get_editais_from_agency(agency)
+        editais = get_editais_from_agency(agency)
     
-    return pdfs
+    return editais
 
 if __name__ == '__main__':
-    get_editals_links_from_config()
-#%%
+    editais = get_editals_links_from_config()
+    
