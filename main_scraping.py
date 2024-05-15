@@ -43,6 +43,7 @@ def get_pdf_links_from_agency(agency_name):
     max_pagination_pages = int(config.get(agency_name, 'max_pagination_pages')) if config.get(agency_name, 'max_pagination_pages') != '' else None
     document_pdf = config.getboolean(agency_name, 'document_pdf')
     page_content_link_regex = config.get(agency_name, 'page_content_link_regex')
+    two_step_pdf_check = config.getboolean(agency_name, 'two_step_pdf_check')
 
     pdf_scraping = PDFScraping(
         agency_name, 
@@ -52,6 +53,7 @@ def get_pdf_links_from_agency(agency_name):
         verify,
         document_pdf,
         page_content_link_regex,
+        two_step_pdf_check,
         pagination_range, 
         max_pagination_pages
     )
