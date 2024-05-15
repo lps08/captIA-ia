@@ -1,6 +1,7 @@
 class PDFLinkModel:
-    def __init__(self, host, name, created, date) -> None:
+    def __init__(self, host, parent_host, name, created, date) -> None:
         self.host = host
+        self.parent_host = parent_host
         self.name = name
         self.created = created
         self.date = date
