@@ -7,6 +7,7 @@ from src.ml_models.llm.gemini_google_llm import get_gemini_model, get_parser
 from src.ml_models.llm.gemma_llm import get_gemma_model
 from src.ml_models.word2vec.similarity import load_model
 from src.constants import ModelCard
+from src.scraping.pdf_scraping import PDFScraping
 from src import constants
 import langchain
 import os
@@ -16,30 +17,39 @@ import tempfile
 from dateparser.search import search_dates
 import re
 from tqdm.notebook import tqdm
+from configparser import ConfigParser
 
 langchain.debug = True #for debuging 
 
-def get_pdf_infos(edital_path, is_document_pdf, model_to_use:ModelCard = constants.MODEL_TO_USE):
+def get_pdf_infos(edital_path, is_document_pdf, use_attachment_files=False, list_edital_attachment=[], model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
-    Extracts information from a PDF file using different models based on the specified ModelCard.
+    Extracts information from a PDF document using a specified model.
 
     Args:
-        edital_path (str): The path to the PDF file.
-        model_to_use (ModelCard): The model card to use for extraction.
+        edital_path (str): The path to the PDF document.
+        is_document_pdf (bool): Indicates whether the document is a PDF.
+        use_attachment_files (bool): Whether to use attachment files. Defaults to False.
+        list_edital_attachment (list): A list of attachment files. Defaults to an empty list.
+        model_to_use (ModelCard): The model to use for extraction. Defaults to constants.MODEL_TO_USE.
 
     Returns:
-        dict: A dictionary containing extracted information from the PDF.
-
-    Note:
-        This function is a higher-level interface that allows users to extract information from PDF files using different models based on the specified ModelCard. For more detailed information on the individual models and their capabilities, refer to the documentation of the respective modules:
-        - For Gemini-Google model: `extract_infos_gemini_google.py`
-        - For Gemma model: `extract_infos_gemma.py`
-        - For manual extraction using Word2Vec: `extract_infos_manual.py`
+        dict: A dictionary containing the extracted information.
     
+    Note:
+        This function extracts information from a PDF document using the specified model. 
+        If the model to use is `ModelCard.GEMINI_GOOGLE`, it initializes the Gemini Google model 
+        and extracts the information using `extract_infos_gemini_google.extract_infos`. 
+        The function supports additional options such as using attachment files 
+        and specifying a list of attachments to include in the extraction process.
+
     Example:
-        >>> edital_path = 'example.pdf'
-        >>> model_to_use = ModelCard.GEMINI_GOOGLE
-        >>> infos = get_pdf_infos(edital_path, model_to_use)
+        >>> infos = get_pdf_infos(
+        >>>     edital_path='path/to/edital.pdf',
+        >>>     is_document_pdf=True,
+        >>>     use_attachment_files=False,
+        >>>     list_edital_attachment=[],
+        >>>     model_to_use=ModelCard.GEMINI_GOOGLE
+        >>> )
         >>> print(infos)
     """
     if model_to_use == ModelCard.GEMINI_GOOGLE:
@@ -51,6 +61,8 @@ def get_pdf_infos(edital_path, is_document_pdf, model_to_use:ModelCard = constan
             embeddings=get_google_embeddings(),
             parser=get_parser(),
             is_document_pdf=is_document_pdf,
+            use_attachment_files=use_attachment_files,
+            list_edital_attachment=list_edital_attachment,
             use_unstructured=True,
         )
         return infos
@@ -440,6 +452,49 @@ def parse_nivel_trl(text):
             return res.group()
         else:
             return 'Não encontrado'
+
+def get_attachments_links(agency_name, edital_page_link):
+    """
+    Retrieves the links to attachment PDFs from a given edital page link for a specified agency.
+
+    Args:
+        agency_name (str): The name of the agency.
+        edital_page_link (str): The URL of the edital page.
+
+    Returns:
+        list: A list of URLs to the attachment PDFs.
+
+    Example:
+        >>> agency_name = 'some_agency'
+        >>> edital_page_link = 'https://example.com/edital'
+        >>> attachments = get_attachments_links(agency_name, edital_page_link)
+        >>> print(attachments)
+
+    Note:
+        This function reads the configuration settings for the specified agency from a configuration file.
+        It then initializes a `PDFScraping` object with the agency's name, the edital page link, and other settings.
+        The function searches for PDF links on the page and filters them to include only those that match the pattern for attachments (case-insensitive 'anexo').
+    """
+    config = ConfigParser()
+    config.read(os.path.join(constants.CONFIG_PATH, constants.SITES_CONFIG_FILE))
+
+    verify = config.getboolean(agency_name, 'verify')
+    two_step_pdf_check = config.getboolean(agency_name, 'two_step_pdf_check')
+
+    pdf_scraping = PDFScraping(
+        name=agency_name, 
+        host=edital_page_link, 
+        selector=None, 
+        depth=1, 
+        verify=verify,
+        two_step_pdf_check=two_step_pdf_check,
+    )
+    pdfs_links = pdf_scraping.get_pdfs_links()
+
+    attachment_pattern_regex = re.compile(r'(anexo)', re.IGNORECASE)
+    attachment_pdfs = [l.host for l in pdfs_links if attachment_pattern_regex.search(l.host)]
+
+    return attachment_pdfs
 
 def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
     """

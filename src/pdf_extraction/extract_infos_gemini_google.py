@@ -12,7 +12,7 @@ class NoDateException(Exception):
     tries=5, 
     delay=2, 
     backoff=2, 
-    exceptions=(OutputParserException, StopCandidateException, NoDateException)
+    exceptions=(OutputParserException, StopCandidateException)
 )
 def extract_infos(
         edital_path, 
@@ -20,65 +20,65 @@ def extract_infos(
         embeddings,
         parser,
         is_document_pdf,
+        use_attachment_files,
+        list_edital_attachment=[],
         use_unstructured=False,
         search_algorithm='mmr',
-        k=50, 
-        fetch_k=100, 
+        k=100, 
+        fetch_k=150, 
         create_spliter=True,
         chunk_size = 1024,
         chunk_overlap = 64,
     ):
     """
-    Extracts information from a PDF document.
-
-    This function extracts information from a PDF document or a HTML page using a combination of retriever and language model. 
-    It formulates specific queries to retrieve relevant information such as the title, call number, objectives, 
-    eligibility criteria, submission deadline, funding amount, areas of knowledge, and required technological 
-    maturity level.
+    Extracts information from a document (PDF or HTML) related to a call for proposals or an edital.
 
     Args:
-        edital_path (str): The path to the edital file or html page.
-        llm (Model): The language model used for question answering.
-        embeddings (Embeddings): The embeddings used for semantic search.
-        parser (Parser): The parser used to extract information from the retrieved text.
-        use_unstructured (bool): Whether to use unstructured search. Defaults to False.
-        search_algorithm (str): The search algorithm used. Defaults to 'mmr'.
-        k (int): The number of documents to retrieve in the initial search. Defaults to 50.
-        fetch_k (int): The number of documents to fetch for detailed processing. Defaults to 100.
-        create_spliter (bool): Whether to create a text spliter. Defaults to True.
-        chunk_size (int): The size of text chunks for processing. Defaults to 1024.
-        chunk_overlap (int): The overlap size between text chunks. Defaults to 64.
+        edital_path (str): The path or URL to the document.
+        llm: The language model to use for processing queries.
+        embeddings: The embeddings model to use for document retrieval.
+        parser: The parser to use for interpreting the model's output.
+        is_document_pdf (bool): Flag indicating if the document is a PDF.
+        use_attachment_files (bool, optional): Flag to determine if attachments should be used. Defaults to False.
+        list_edital_attachment (list, optional): List of URLs or paths to attachment PDFs. Defaults to [].
+        use_unstructured (bool, optional): Flag to determine whether to use unstructured loading for PDFs. Defaults to False.
+        search_algorithm (str, optional): The search algorithm to use for document retrieval. Defaults to 'mmr'.
+        k (int, optional): The number of top documents to consider during retrieval. Defaults to 100.
+        fetch_k (int, optional): The number of documents to fetch initially. Defaults to 150.
+        create_spliter (bool, optional): Flag to determine if a text splitter should be created. Defaults to True.
+        chunk_size (int, optional): The size of text chunks to use. Defaults to 1024.
+        chunk_overlap (int, optional): The overlap between text chunks. Defaults to 64.
 
     Returns:
-        dict: A dictionary containing the extracted information from the edital.
+        dict: A dictionary containing extracted information from the document.
 
-    Raises:
-        NoDateException: Raised if the submission deadline date is not found in the extracted information.
-
-    Notes:
-        This function utilizes retriever and language model components to extract information from a edital. 
-        It formulates specific queries tailored to the desired information and retrieves relevant text passages 
-        from the document. The extracted text is then parsed to extract structured information.
+    Note:
+        This function is decorated with a retry mechanism that attempts to run the function up to 5 times with an exponential backoff.
+        It uses a query to extract specific information such as the title, number, objectives, eligibility criteria, submission deadline,
+        funding amount, knowledge areas, and technology readiness level (TRL) from the document.
 
     Example:
-        To extract information from a edital, you can use this function as follows:
-
-        >>> edital_path = 'document.pdf'
-        >>> llm = LanguageModel()
-        >>> embeddings = Embeddings()
-        >>> parser = Parser()
-        >>> info = extract_infos(edital_path, llm, embeddings, parser)
-        >>> print(info)
-
+        >>> edital_path = 'path/to/document.pdf'
+        >>> llm = get_llm_model()
+        >>> embeddings = get_embeddings_model()
+        >>> parser = get_parser()
+        >>> result = extract_infos(
+        >>>     edital_path,
+        >>>     llm,
+        >>>     embeddings,
+        >>>     parser,
+        >>>     is_document_pdf=True,
+        >>>     use_attachment_files=True,
+        >>>     list_edital_attachment=['path/to/attachment1.pdf', 'path/to/attachment2.pdf']
+        >>> )
+        >>> print(result)
     """
-    query = 'Extraia o título da chamada/edital completo do documento. Extraia os titulo da chamada/edital a partir do titulo completo do documento. Qual o numero da chamada ou edital, se possuir? Qual o objetivo da chamada? Liste os critérios de elegibilidade? Qual a data inicial de lançamento da chamada/edital? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total/maximo (retorne Não encontrado se não conter o valor)? Quais as áreas de conhecimento? Qual o nível de maturidade tecnológica (TRL) necessário?'
+    query = 'Extraia o título da chamada/edital completo do documento. Extraia os titulo da chamada/edital a partir do titulo completo do documento. Qual o numero da chamada ou edital, se possuir? Qual o objetivo da chamada? Liste os critérios de elegibilidade? Qual a data inicial de lançamento da chamada/edital? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total/maximo (retorne Não encontrado se não conter o valor)? Liste as áreas de conhecimento da chamada/edital? Qual o nível de maturidade tecnológica (TRL) necessário?'
     if is_document_pdf:
-        retriever = create_retriever_from_pdf(edital_path, embeddings, use_unstructured, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
+        retriever = create_retriever_from_pdf(edital_path, embeddings, use_unstructured, use_attachment_files, list_edital_attachment, search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
     else:
         retriever = create_retriever_from_html_page(edital_path, embeddings, search_algorithm, k, fetch_k)
 
     res = qa_llm(query, llm, retriever, parser)
     res = parser.parse(res)
-    if res.submissao == 'Não encontrado':
-        raise NoDateException
     return res.dict()
