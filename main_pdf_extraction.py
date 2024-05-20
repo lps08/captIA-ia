@@ -480,16 +480,13 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
             if edital['ds_link_pdf'] not in links_info_editals_extracted:
                 try:
                     print(f"Extracting {edital['ds_agency'].upper()} -> {edital['ds_link_pdf']}")
-                    if edital['is_document_pdf']:
-                        response = requests.get(edital['ds_link_pdf'])
-                        response.raise_for_status()
-
-                        with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
-                            temp_pdf_file.write(response.content)
-                            temp_pdf_path = temp_pdf_file.name
-                            infos = get_pdf_infos(temp_pdf_path, model_to_use)
-                    else:
-                        infos = get_pdf_infos(edital['ds_link_pdf'], edital['is_document_pdf'], model_to_use)
+                    infos = get_pdf_infos(
+                        edital_path=edital['ds_link_pdf'], 
+                        is_document_pdf=edital['is_document_pdf'], 
+                        use_attachment_files=edital['use_attachment_files'],
+                        list_edital_attachment=get_attachments_links(edital['ds_agency'], edital['ds_parent_link']) if edital['use_attachment_files'] else [],
+                        model_to_use=model_to_use,
+                    )
 
                     editals_db.insert_data(
                         ds_link_pdf=edital['ds_link_pdf'],

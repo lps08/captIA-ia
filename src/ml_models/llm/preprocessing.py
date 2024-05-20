@@ -5,6 +5,9 @@ from langchain.vectorstores import FAISS
 from unstructured.partition.pdf import partition_pdf
 from unstructured.partition.html import partition_html
 from langchain_core.documents import Document
+import requests
+import tempfile
+import re
 
 def load_doc(pdf_path):
     """
@@ -39,17 +42,53 @@ def load_doc_uns(
         new_after_n_chars=750,
         combine_text_under_n_chars=500,
     ):
-    raw_pdf_elements = partition_pdf(
-        filename=pdf_path,
-        extract_images_in_pdf=extract_images,
-        infer_table_structure=infer_table_structure,
-        languages=languages,
-        chunking_strategy=chunking_strategy,
-        strategy=strategy,
-        max_characters=max_characters,
-        new_after_n_chars=new_after_n_chars,
-        combine_text_under_n_chars=combine_text_under_n_chars,
-    )
+    """
+    Loads and processes a PDF document, partitioning it into text elements using various strategies.
+
+    Args:
+        pdf_path (str): The URL or local path to the PDF file.
+        extract_images (bool): Whether to extract images from the PDF. Defaults to False.
+        infer_table_structure (bool): Whether to infer table structures in the PDF. Defaults to True.
+        languages (list): List of languages for text extraction. Defaults to ['por'].
+        chunking_strategy (str): The strategy for chunking text. Defaults to "by_title".
+        strategy (str): The extraction strategy. Defaults to 'auto'.
+        max_characters (int): Maximum number of characters per chunk. Defaults to 1000.
+        new_after_n_chars (int): Create new chunk after this many characters. Defaults to 750.
+        combine_text_under_n_chars (int): Combine text chunks under this many characters. Defaults to 500.
+
+    Returns:
+        list: A list of Document objects containing the extracted text content.
+    
+    Note:
+        This function downloads a PDF file from the provided URL, processes it to extract text elements based on the
+        specified chunking and extraction strategies, and returns a list of Document objects containing the text content.
+        The `partition_pdf` function from the `unstructured` library is used for the extraction process, and the function
+        supports various options for handling images, table structures, and different languages. The chunking strategy and
+        character limits help in dividing the text into manageable parts for further processing.
+
+    Example:
+        >>> docs = load_doc_uns(pdf_path='http://example.com/sample.pdf')
+        >>> for doc in docs:
+        >>>     print(doc.page_content)
+    """
+    response = requests.get(pdf_path)
+    response.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf_file:
+        temp_pdf_file.write(response.content)
+        temp_pdf_path = temp_pdf_file.name
+
+        raw_pdf_elements = partition_pdf(
+            filename=temp_pdf_path,
+            extract_images_in_pdf=extract_images,
+            infer_table_structure=infer_table_structure,
+            languages=languages,
+            chunking_strategy=chunking_strategy,
+            strategy=strategy,
+            max_characters=max_characters,
+            new_after_n_chars=new_after_n_chars,
+            combine_text_under_n_chars=combine_text_under_n_chars,
+        )
     
     text_elements = []
 
