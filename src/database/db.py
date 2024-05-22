@@ -347,8 +347,10 @@ class ScrapingDatabase(DatabaseTable):
         self.cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {self.table_name} (
             ds_link_pdf TEXT PRIMARY KEY NOT NULL,
+            ds_parent_link TEXT,
             ds_agency TEXT NOT NULL,
             is_document_pdf INTEGER,
+            use_attachment_files INTEGER,
             dt_pdf_file_date TEXT,
             dt_created_at TEXT
         )''')
