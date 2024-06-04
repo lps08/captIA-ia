@@ -3,6 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, H
 from langchain.output_parsers import PydanticOutputParser
 from src.ml_models.llm.base_models.edital_model import Edital
 from src import constants
+from deprecated import deprecated
 
 def disable_safety_settings():
     """
@@ -32,6 +33,7 @@ def disable_safety_settings():
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
     }
 
+@deprecated(reason="this function should be removed!")
 def get_parser():
     """
     Get an instance of PydanticOutputParser initialized with a Pydantic object.
@@ -51,9 +53,9 @@ def get_parser():
 
 def get_gemini_model(
         name=constants.GOOGLE_GEMINI_MODEL_NAME, 
-        temperature=0.5,
-        top_p=0.5, 
-        top_k=2,
+        temperature=0.3,
+        top_p=0.6, 
+        top_k=1,
         convert_system_message_to_human=True, 
         disable_safety=True
     ):
