@@ -6,7 +6,7 @@ load_dotenv()
 
 class ModelCard(enum.Enum):
     GEMINI_GOOGLE = "Google gemini online LLM model"
-    GEMMA = "Gemma local LLM model"
+    LOCAL_LLM = "local LLM model"
     MANUAL = "Manual approach"
 
 CAPTIA_CONFIG_PATH = "config/app_config.ini"
@@ -18,14 +18,14 @@ DATA_PATH = config.get('captia', 'data_path')
 SITES_CONFIG_FILE = config.get('captia', 'sites_config_file')
 BERT_MODEL_NAME = config.get('captia', 'bert_model_name')
 BERT_FINETUNED_MODEL_FOLDER = config.get('captia', 'bert_finetuned_model_folder')
-MODEL_TO_USE = ModelCard.GEMINI_GOOGLE
+MODEL_TO_USE = ModelCard.LOCAL_LLM
 WORD2VEC_MODEL_FILE = config.get('captia', 'word2vec_model_file')
 QA_MODEL_NAME = config.get('captia', 'qa_model_name')
 URL_WOR2VEC_MODEL = config.get('captia', 'url_word2vec_model')
 EDITALS_DATASET_PATH = config.get('captia', 'editals_dataset_path')
 GOOGLE_EMBEDDINGS_MODEL_NAME = config.get('captia', 'google_embeddings_model_name')
 HUGGINGFACE_EMBEDDINGS_MODEL_NAME = config.get('captia', 'huggingface_embeddings_model_name')
-GEMMA_MODEL_NAME = config.get('captia', 'gemma_model_name')
+LOCAL_LLM_MODEL_NAME = config.get('captia', 'local_llm_model_name')
 GOOGLE_GEMINI_MODEL_NAME = config.get('captia', 'google_gemini_model_name')
 SQLITE_DB_FILE = config.get('captia', 'sqlite_db_file')
 SCRAPING_TABLE_NAME = config.get('captia', 'scraping_table_name')

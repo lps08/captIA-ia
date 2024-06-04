@@ -1,10 +1,10 @@
 #%%
 from src.pdf_extraction import extract_infos_gemini_google
-from src.pdf_extraction import extract_infos_gemma
+from src.pdf_extraction import extract_infos_local_llm_model
 from src.pdf_extraction import extract_infos_manual
 from src.ml_models.llm.retrieval_qa_llm import get_google_embeddings, get_huggingface_embeddings
 from src.ml_models.llm.gemini_google_llm import get_gemini_model, get_parser
-from src.ml_models.llm.gemma_llm import get_gemma_model
+from src.ml_models.llm.local_llm_model import get_local_llm_model
 from src.ml_models.word2vec.similarity import load_model
 from src.constants import ModelCard
 from src.scraping.pdf_scraping import PDFScraping
@@ -23,33 +23,24 @@ langchain.debug = True #for debuging
 
 def get_pdf_infos(edital_path, is_document_pdf, use_attachment_files=False, list_edital_attachment=[], model_to_use:ModelCard = constants.MODEL_TO_USE):
     """
-    Extracts information from a PDF document using a specified model.
+    Extracts information from a PDF document using the specified model.
+
+    This function determines which model to use for extracting information from the PDF document based on the `model_to_use` parameter. It supports three models: GEMINI_GOOGLE, LOCAL_LLM, and MANUAL. Each model uses a different approach for information extraction.
 
     Args:
         edital_path (str): The path to the PDF document.
         is_document_pdf (bool): Indicates whether the document is a PDF.
-        use_attachment_files (bool): Whether to use attachment files. Defaults to False.
-        list_edital_attachment (list): A list of attachment files. Defaults to an empty list.
-        model_to_use (ModelCard): The model to use for extraction. Defaults to constants.MODEL_TO_USE.
+        use_attachment_files (bool, optional): Whether to use attachment files associated with the document. Defaults to False.
+        list_edital_attachment (list, optional): A list of attachment file paths. Defaults to an empty list.
+        model_to_use (ModelCard, optional): The model to use for extracting information. Defaults to constants.MODEL_TO_USE.
 
     Returns:
-        dict: A dictionary containing the extracted information.
-    
-    Note:
-        This function extracts information from a PDF document using the specified model. 
-        If the model to use is `ModelCard.GEMINI_GOOGLE`, it initializes the Gemini Google model 
-        and extracts the information using `extract_infos_gemini_google.extract_infos`. 
-        The function supports additional options such as using attachment files 
-        and specifying a list of attachments to include in the extraction process.
+        dict: The extracted information as a dictionary.
 
     Example:
-        >>> infos = get_pdf_infos(
-        >>>     edital_path='path/to/edital.pdf',
-        >>>     is_document_pdf=True,
-        >>>     use_attachment_files=False,
-        >>>     list_edital_attachment=[],
-        >>>     model_to_use=ModelCard.GEMINI_GOOGLE
-        >>> )
+        >>> edital_path = "/path/to/document.pdf"
+        >>> is_document_pdf = True
+        >>> infos = get_pdf_infos(edital_path, is_document_pdf, use_attachment_files=True, list_edital_attachment=["/path/to/attachment1.pdf"], model_to_use=ModelCard.GEMINI_GOOGLE)
         >>> print(infos)
     """
     if model_to_use == ModelCard.GEMINI_GOOGLE:
@@ -59,7 +50,6 @@ def get_pdf_infos(edital_path, is_document_pdf, use_attachment_files=False, list
             edital_path,
             llm=gemini_llm,
             embeddings=get_google_embeddings(),
-            parser=get_parser(),
             is_document_pdf=is_document_pdf,
             use_attachment_files=use_attachment_files,
             list_edital_attachment=list_edital_attachment,
@@ -67,13 +57,17 @@ def get_pdf_infos(edital_path, is_document_pdf, use_attachment_files=False, list
         )
         return infos
 
-    elif model_to_use == ModelCard.GEMMA:
-        gemma_llm = get_gemma_model()
+    elif model_to_use == ModelCard.LOCAL_LLM:
+        local_llm_model = get_local_llm_model()
         
-        infos = extract_infos_gemma.extract_infos(
+        infos = extract_infos_local_llm_model.extract_infos(
             edital_path,
-            llm=gemma_llm,
+            llm=local_llm_model,
             embeddings=get_huggingface_embeddings(),
+            is_document_pdf=is_document_pdf,
+            use_attachment_files=use_attachment_files,
+            list_edital_attachment=list_edital_attachment,
+            use_unstructured=True,
         )
         return infos
 
