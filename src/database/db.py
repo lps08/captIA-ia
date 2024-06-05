@@ -371,10 +371,13 @@ class EditalDatabse(DatabaseTable):
             ds_agency TEXT,
             ds_objetivo TEXT,
             ds_elegibilidade TEXT,
-            dt_submissao TEXT,
+            ds_submission TEXT,
+            dt_submission DATE,
             ds_financiamento TEXT,
+            ds_currency TEXT,
+            nm_financing_value REAL,
             ds_areas TEXT,
-            ds_nivel_trl,
+            ds_nivel_trl TEXT,
             is_document_pdf INTEGER,
             dt_created_at TEXT
         )''')
