@@ -300,6 +300,59 @@ def parse_currency(text):
     else:
         return currency_matched.group()
 
+def parse_financing_value(text):
+    """
+    Parses and returns the financing value from a given text.
+
+    This function identifies and extracts numerical values representing monetary amounts from the input text.
+    It handles both formatted numbers (e.g., "1.234,56") and plain numbers (e.g., "1234" or "1,234").
+    It also recognizes and converts values expressed in words (e.g., "milhão", "bilhão").
+
+    Args:
+        text (str): The input text from which to parse the financing value.
+
+    Returns:
+        float: The parsed financing value, or None if no value is found.
+
+    Examples:
+        >>> parse_financing_value("O valor do financiamento é 1.234.567,89.")
+        1234567.89
+
+        >>> parse_financing_value("O valor do financiamento é 2 bilhões.")
+        2000000000.0
+
+        >>> parse_financing_value("O valor do financiamento é 5 mil.")
+        5000.0
+
+        >>> parse_financing_value("No financing value here.")
+        None
+    """
+    financing_pattern = re.compile(r"(\d{1,3}\.)+(\d{1,3})(,\d{1,2})?")
+    financing_matched = financing_pattern.search(text)
+    financing_value = financing_matched.group().replace('.', '').replace(',', '.') if financing_matched else None
+
+    if financing_value is None:
+        num_text = re.search(r"\d{1,3}(,\d{1})?", text)
+        
+        if num_text:
+            num_text = num_text.group()
+            num_value = float(num_text.replace(',', '.'))
+
+            if re.search(r'bilh(ao|ão|oes|ões)', text):
+                return num_value * 1000000000
+            elif re.search(r'milh(ao|ão|oes|ões)', text):
+                return num_value * 1000000
+            elif re.search(r'mil', text):
+                return num_value * 1000
+            else:
+                return None
+        
+        else:
+            return None
+
+    else:
+        return float(financing_value)
+
 def parse_edital_number(text):
     """
     Parses and extracts an edital number from a given text.
@@ -600,6 +653,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         dt_submission=parse_datetime(infos['submissao'], defaul_return=None),
                         ds_financiamento=parse_money_value(infos['financiamento']),
                         ds_currency=parse_currency(infos['financiamento']),
+                        nm_financing_value=parse_financing_value(infos['financiamento']),
                         ds_areas=parse_areas(infos['areas']),
                         ds_nivel_trl=parse_nivel_trl(infos['nivel_trl']),
                         is_document_pdf=edital['is_document_pdf']
