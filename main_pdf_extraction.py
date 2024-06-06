@@ -249,6 +249,57 @@ def parse_money_value(text):
     res = money_regex.search(text)
     return res.group() if res else text
 
+def parse_currency(text):
+    """
+    Parses and returns the currency symbol from a given text.
+
+    This function identifies common currency symbols (e.g., R$, £, $, €) within the input text. 
+    If no standard currency symbol is found, it attempts to match common currency names like 
+    'real', 'euro', and 'dólar' (or their variations) and returns the corresponding symbol.
+
+    Args:
+        text (str): The input text from which to parse the currency symbol.
+
+    Returns:
+        str: The matched currency symbol ('R$', '£', '$', '€'), or None if no currency is found.
+
+    Examples:
+        >>> parse_currency("O valor é R$ 1000.")
+        'R$'
+        
+        >>> parse_currency("The price is $50.")
+        '$'
+        
+        >>> parse_currency("Preço: 100 euros.")
+        '€'
+        
+        >>> parse_currency("Custo em reais.")
+        'R$'
+        
+        >>> parse_currency("Monto: 2000 dólares")
+        '$'
+        
+        >>> parse_currency("No currency here.")
+        None
+    """
+    currency_pattern = re.compile(r"(R?[£\$€])", re.IGNORECASE)
+
+    currency_matched = currency_pattern.search(text)
+
+    if not currency_matched:
+        if re.search(r'rea(l|is)', text):
+            return "R$"
+        elif re.search(r'(euro)s?', text):
+            return "€"
+        elif re.search(r'd[o|ó]lar(es)?', text):
+            return "$"
+        elif re.search(r'(libra)s?', text):
+            return "£"
+        else:
+            return None
+    else:
+        return currency_matched.group()
+
 def parse_edital_number(text):
     """
     Parses and extracts an edital number from a given text.
@@ -548,6 +599,7 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_submission=parse_datetime(infos['submissao'], defaul_return="Fluxo contínuo"),
                         dt_submission=parse_datetime(infos['submissao'], defaul_return=None),
                         ds_financiamento=parse_money_value(infos['financiamento']),
+                        ds_currency=parse_currency(infos['financiamento']),
                         ds_areas=parse_areas(infos['areas']),
                         ds_nivel_trl=parse_nivel_trl(infos['nivel_trl']),
                         is_document_pdf=edital['is_document_pdf']
