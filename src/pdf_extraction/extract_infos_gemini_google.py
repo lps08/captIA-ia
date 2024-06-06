@@ -1,7 +1,9 @@
 from src.ml_models.llm.preprocessing import create_retriever_from_pdf, create_retriever_from_html_page
 from src.ml_models.llm.retrieval_qa_llm import qa_llm
+from src.ml_models.llm.base_models import edital_model
 from google.generativeai.types.generation_types import StopCandidateException
 from langchain_core.exceptions import OutputParserException
+from langchain.output_parsers import PydanticOutputParser
 from retry import retry
 
 class NoDateException(Exception):
@@ -15,7 +17,7 @@ class NoDateException(Exception):
     exceptions=(OutputParserException, StopCandidateException)
 )
 def extract_infos(
-        pdf_path, 
+        edital_path, 
         llm,
         embeddings,
         is_document_pdf,
@@ -64,7 +66,7 @@ def extract_infos(
             )
         >>> print(infos)
     """
-    query = 'Extraia o título da chamada/edital completo do documento. Extraia os titulo da chamada/edital a partir do titulo completo do documento. Qual o numero da chamada ou edital, se possuir? Qual o objetivo da chamada? Liste os critérios de elegibilidade? Qual a data inicial de lançamento da chamada/edital? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total/maximo (retorne Não encontrado se não conter o valor)? Liste as áreas de conhecimento da chamada/edital? Qual o nível de maturidade tecnológica (TRL) necessário?'
+    query = 'Extraia o título da chamada/edital completo do documento. Extraia os titulo da chamada/edital a partir do titulo completo do documento. Qual o numero da chamada ou edital, se possuir? Qual o objetivo da chamada? Liste os critérios de elegibilidade? Qual a data inicial de lançamento da chamada/edital? Quando é a data deadline de submissão ou a data é de fluxo contínuo (sem data de submissão)? Quanto é o recurso financiado total/maximo com o tipo de moeda (retorne Não encontrado se não conter o valor)? Liste as áreas de conhecimento da chamada/edital? Qual o nível de maturidade tecnológica (TRL) necessário?'
     if is_document_pdf:
         retriever = create_retriever_from_pdf(edital_path, embeddings, use_unstructured, use_attachment_files, list_edital_attachment, [], search_algorithm, k, fetch_k, create_spliter, chunk_size, chunk_overlap)
     else:
