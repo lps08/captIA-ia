@@ -249,6 +249,110 @@ def parse_money_value(text):
     res = money_regex.search(text)
     return res.group() if res else text
 
+def parse_currency(text):
+    """
+    Parses and returns the currency symbol from a given text.
+
+    This function identifies common currency symbols (e.g., R$, £, $, €) within the input text. 
+    If no standard currency symbol is found, it attempts to match common currency names like 
+    'real', 'euro', and 'dólar' (or their variations) and returns the corresponding symbol.
+
+    Args:
+        text (str): The input text from which to parse the currency symbol.
+
+    Returns:
+        str: The matched currency symbol ('R$', '£', '$', '€'), or None if no currency is found.
+
+    Examples:
+        >>> parse_currency("O valor é R$ 1000.")
+        'R$'
+        
+        >>> parse_currency("The price is $50.")
+        '$'
+        
+        >>> parse_currency("Preço: 100 euros.")
+        '€'
+        
+        >>> parse_currency("Custo em reais.")
+        'R$'
+        
+        >>> parse_currency("Monto: 2000 dólares")
+        '$'
+        
+        >>> parse_currency("No currency here.")
+        None
+    """
+    currency_pattern = re.compile(r"(R?[£\$€])", re.IGNORECASE)
+
+    currency_matched = currency_pattern.search(text)
+
+    if not currency_matched:
+        if re.search(r'rea(l|is)', text):
+            return "R$"
+        elif re.search(r'(euro)s?', text):
+            return "€"
+        elif re.search(r'd[o|ó]lar(es)?', text):
+            return "$"
+        elif re.search(r'(libra)s?', text):
+            return "£"
+        else:
+            return None
+    else:
+        return currency_matched.group()
+
+def parse_financing_value(text):
+    """
+    Parses and returns the financing value from a given text.
+
+    This function identifies and extracts numerical values representing monetary amounts from the input text.
+    It handles both formatted numbers (e.g., "1.234,56") and plain numbers (e.g., "1234" or "1,234").
+    It also recognizes and converts values expressed in words (e.g., "milhão", "bilhão").
+
+    Args:
+        text (str): The input text from which to parse the financing value.
+
+    Returns:
+        float: The parsed financing value, or None if no value is found.
+
+    Examples:
+        >>> parse_financing_value("O valor do financiamento é 1.234.567,89.")
+        1234567.89
+
+        >>> parse_financing_value("O valor do financiamento é 2 bilhões.")
+        2000000000.0
+
+        >>> parse_financing_value("O valor do financiamento é 5 mil.")
+        5000.0
+
+        >>> parse_financing_value("No financing value here.")
+        None
+    """
+    financing_pattern = re.compile(r"(\d{1,3}\.)+(\d{1,3})(,\d{1,2})?")
+    financing_matched = financing_pattern.search(text)
+    financing_value = financing_matched.group().replace('.', '').replace(',', '.') if financing_matched else None
+
+    if financing_value is None:
+        num_text = re.search(r"\d{1,3}(,\d{1})?", text)
+        
+        if num_text:
+            num_text = num_text.group()
+            num_value = float(num_text.replace(',', '.'))
+
+            if re.search(r'bilh(ao|ão|oes|ões)', text):
+                return num_value * 1000000000
+            elif re.search(r'milh(ao|ão|oes|ões)', text):
+                return num_value * 1000000
+            elif re.search(r'mil', text):
+                return num_value * 1000
+            else:
+                return None
+        
+        else:
+            return None
+
+    else:
+        return float(financing_value)
+
 def parse_edital_number(text):
     """
     Parses and extracts an edital number from a given text.
@@ -545,8 +649,11 @@ def extract_pdf_infos_db(model_to_use:ModelCard = constants.MODEL_TO_USE):
                         ds_numero=parse_edital_number(infos['numero']),
                         ds_objetivo=parse_objetivo(infos['objetivo']),
                         ds_elegibilidade=parse_elegibilidade(infos['elegibilidade']),
-                        dt_submissao=parse_datetime(infos['submissao']),
+                        ds_submission=parse_datetime(infos['submissao'], defaul_return="Fluxo contínuo"),
+                        dt_submission=parse_datetime(infos['submissao'], defaul_return=None),
                         ds_financiamento=parse_money_value(infos['financiamento']),
+                        ds_currency=parse_currency(infos['financiamento']),
+                        nm_financing_value=parse_financing_value(infos['financiamento']),
                         ds_areas=parse_areas(infos['areas']),
                         ds_nivel_trl=parse_nivel_trl(infos['nivel_trl']),
                         is_document_pdf=edital['is_document_pdf']
